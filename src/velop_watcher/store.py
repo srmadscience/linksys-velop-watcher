@@ -37,6 +37,17 @@ VALUES (?, ?, ?, ?, ?)
 # back to velop.sysinfo. CrateDB has no autoincrement, so every row gets a
 # Python-generated UUID primary key.
 TIER1_DDL = (
+    # OUI/vendor cache: one row per 24-bit OUI, populated lazily from the manuf
+    # file the first time a MAC with that prefix is seen (vendor may be NULL to
+    # cache a known miss). See oui.py.
+    """
+    CREATE TABLE IF NOT EXISTS velop.oui (
+        oui TEXT PRIMARY KEY,
+        vendor TEXT,
+        source TEXT,
+        looked_up_at TIMESTAMP WITH TIME ZONE
+    )
+    """,
     """
     CREATE TABLE IF NOT EXISTS velop.device (
         id TEXT PRIMARY KEY,
@@ -44,13 +55,15 @@ TIER1_DDL = (
         fetched_at TIMESTAMP WITH TIME ZONE,
         uuid TEXT,
         mac TEXT,
+        mac_vendor TEXT,
         ip TEXT,
         conn TEXT,
         status TEXT,
         name TEXT,
         fw_ver TEXT,
         role TEXT,
-        extra_macs ARRAY(TEXT)
+        extra_macs ARRAY(TEXT),
+        extra_macs_vendor ARRAY(TEXT)
     )
     """,
     """
@@ -59,6 +72,7 @@ TIER1_DDL = (
         snapshot_id TEXT,
         fetched_at TIMESTAMP WITH TIME ZONE,
         client_mac TEXT,
+        client_mac_vendor TEXT,
         stat TEXT,
         net TEXT,
         node TEXT,
@@ -73,6 +87,7 @@ TIER1_DDL = (
         snapshot_id TEXT,
         fetched_at TIMESTAMP WITH TIME ZONE,
         node_mac TEXT,
+        node_mac_vendor TEXT,
         node_ip TEXT,
         parent_ip TEXT,
         intf TEXT,
@@ -104,6 +119,7 @@ TIER1_DDL = (
         fetched_at TIMESTAMP WITH TIME ZONE,
         uuid TEXT,
         mac TEXT,
+        mac_vendor TEXT,
         ip TEXT,
         name TEXT,
         role TEXT,
@@ -115,10 +131,13 @@ TIER1_DDL = (
         model_number TEXT,
         hw_version TEXT,
         userap2g_bssid TEXT,
+        userap2g_bssid_vendor TEXT,
         userap2g_channel TEXT,
         userap5gl_bssid TEXT,
+        userap5gl_bssid_vendor TEXT,
         userap5gl_channel TEXT,
         userap5gh_bssid TEXT,
+        userap5gh_bssid_vendor TEXT,
         userap5gh_channel TEXT,
         -- Full DEVINFO 'data' blob kept verbatim; CrateDB infers sub-columns.
         devinfo OBJECT(IGNORED)
@@ -143,6 +162,7 @@ TIER1_DDL = (
         interface TEXT,
         ssid TEXT,
         mac TEXT,
+        mac_vendor TEXT,
         frequency TEXT,
         settings OBJECT(IGNORED)
     )
@@ -183,10 +203,12 @@ TIER1_DDL = (
         interface TEXT,
         rid TEXT,
         chassis_id TEXT,
+        chassis_id_vendor TEXT,
         sys_name TEXT,
         sys_descr TEXT,
         mgmt_ip TEXT,
         port_id TEXT,
+        port_id_vendor TEXT,
         port_descr TEXT,
         capabilities OBJECT(IGNORED)
     )
@@ -195,29 +217,37 @@ TIER1_DDL = (
 
 # Column order per table for executemany inserts. id/snapshot_id/fetched_at are
 # prepended for every row; the rest mirror the parse.py record keys.
-_DEVICE_COLS = ("uuid", "mac", "ip", "conn", "status", "name", "fw_ver", "role", "extra_macs")
-_WLAN_COLS = ("client_mac", "stat", "net", "node", "mcs", "rssi", "last_seen")
+_DEVICE_COLS = (
+    "uuid", "mac", "mac_vendor", "ip", "conn", "status", "name", "fw_ver", "role",
+    "extra_macs", "extra_macs_vendor",
+)
+_WLAN_COLS = (
+    "client_mac", "client_mac_vendor", "stat", "net", "node", "mcs", "rssi", "last_seen",
+)
 _BACKHAUL_COLS = (
-    "node_mac", "node_ip", "parent_ip", "intf", "chan", "rssi", "speed", "state", "timestamp",
+    "node_mac", "node_mac_vendor", "node_ip", "parent_ip", "intf", "chan", "rssi",
+    "speed", "state", "timestamp",
 )
 _PING_COLS = (
     "target", "transmitted", "received", "loss_pct", "rtt_min", "rtt_avg", "rtt_max",
 )
 _NODE_COLS = (
-    "uuid", "mac", "ip", "name", "role", "sku", "serial_number", "fw_ver", "mode",
-    "model_base", "model_number", "hw_version", "userap2g_bssid", "userap2g_channel",
-    "userap5gl_bssid", "userap5gl_channel", "userap5gh_bssid", "userap5gh_channel", "devinfo",
+    "uuid", "mac", "mac_vendor", "ip", "name", "role", "sku", "serial_number", "fw_ver",
+    "mode", "model_base", "model_number", "hw_version",
+    "userap2g_bssid", "userap2g_bssid_vendor", "userap2g_channel",
+    "userap5gl_bssid", "userap5gl_bssid_vendor", "userap5gl_channel",
+    "userap5gh_bssid", "userap5gh_bssid_vendor", "userap5gh_channel", "devinfo",
 )
 _RADIO_STATS_COLS = ("radio", "band", "stats")
-_RADIO_CONFIG_COLS = ("interface", "ssid", "mac", "frequency", "settings")
+_RADIO_CONFIG_COLS = ("interface", "ssid", "mac", "mac_vendor", "frequency", "settings")
 _NIC_COUNTER_COLS = ("intf", "rx_bytes", "tx_bytes")
 _SYSTEM_COLS = (
     "uptime_secs", "load_1", "load_5", "load_15", "mem_total", "mem_used",
     "mem_free", "mem_shared", "mem_buffers", "mem_cached", "cpu_idle_pct",
 )
 _LLDP_COLS = (
-    "interface", "rid", "chassis_id", "sys_name", "sys_descr", "mgmt_ip",
-    "port_id", "port_descr", "capabilities",
+    "interface", "rid", "chassis_id", "chassis_id_vendor", "sys_name", "sys_descr",
+    "mgmt_ip", "port_id", "port_id_vendor", "port_descr", "capabilities",
 )
 
 

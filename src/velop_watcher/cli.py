@@ -19,6 +19,7 @@ from .parse import (
     parse_system,
     parse_wlan_clients,
 )
+from .oui import VendorResolver, enrich, load_manuf
 from .store import connect, ensure_schema, store_sysinfo, store_tier1
 
 
@@ -55,9 +56,19 @@ def main(argv: list[str] | None = None) -> int:
         "lldp": parse_lldp(text),
     }
 
+    manuf = load_manuf(cfg.oui_manuf_path)
+    if manuf is None:
+        print(
+            f"note: OUI manuf file not found at {cfg.oui_manuf_path}; vendor columns "
+            "will be null. Run velop-oui-update to fetch it.",
+            file=sys.stderr,
+        )
+
     conn = connect(cfg)
     try:
         ensure_schema(conn)
+        # Annotate every MAC with its vendor, caching lookups in velop.oui.
+        enrich(parsed, VendorResolver(conn, manuf))
         row_id = store_sysinfo(conn, text, fetched_at, generated_at, host)
         counts = store_tier1(conn, parsed, row_id, fetched_at)
     finally:
