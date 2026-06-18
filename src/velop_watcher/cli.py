@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 
 from .config import Config
 from .fetch import fetch_sysinfo, parse_generated_at, router_host
-from .parse import parse_backhaul, parse_devices, parse_nodes, parse_wlan_clients
+from .parse import parse_backhaul, parse_devices, parse_nodes, parse_ping, parse_wlan_clients
 from .store import connect, ensure_schema, store_sysinfo, store_tier1
 
 
@@ -35,6 +35,7 @@ def main(argv: list[str] | None = None) -> int:
         "devices": parse_devices(text),
         "wlan_clients": parse_wlan_clients(text),
         "backhaul": parse_backhaul(text),
+        "ping": parse_ping(text),
         "nodes": parse_nodes(text),
     }
 

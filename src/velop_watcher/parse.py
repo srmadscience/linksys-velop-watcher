@@ -340,8 +340,66 @@ def parse_nodes(text: str) -> list[dict]:
     return nodes
 
 
+# --------------------------------------------------------------------------
+# Tier 7: ping statistics -> velop.ping
+# --------------------------------------------------------------------------
+
+# Section header: ``--- <target> ping statistics ---`` (target captured so a
+# future change of probe host is recorded rather than assumed).
+_PING_HEADER_RE = re.compile(r"^---\s+(?P<target>.+?)\s+ping statistics\s+---\s*$")
+# ``2 packets transmitted, 2 packets received, 0% packet loss`` -- some ping
+# builds drop the second "packets" and loss can be fractional.
+_PING_COUNTS_RE = re.compile(
+    r"(?P<tx>\d+)\s+packets transmitted,\s+(?P<rx>\d+)\s+(?:packets\s+)?received"
+    r".*?(?P<loss>[\d.]+)%\s+packet loss"
+)
+# ``round-trip min/avg/max = 9.297/11.709/14.122 ms`` (also ``rtt`` builds with
+# a trailing ``/mdev``); we keep min/avg/max.
+_PING_RTT_RE = re.compile(
+    r"(?:round-trip|rtt)\s+min/avg/max(?:/mdev)?\s*=\s*"
+    r"(?P<min>[\d.]+)/(?P<avg>[\d.]+)/(?P<max>[\d.]+)"
+)
+
+
+def parse_ping(text: str) -> list[dict]:
+    """Parse the WAN ping statistics block into a single-row record.
+
+    Anchored on ``--- <target> ping statistics ---``; the following few lines
+    carry the transmitted/received/loss counts and the round-trip min/avg/max.
+    Any field that is absent (e.g. the RTT line is omitted on 100% loss) is
+    left ``None`` rather than failing. Returns ``[]`` if the section is missing.
+    """
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
+        header = _PING_HEADER_RE.match(line.strip())
+        if not header:
+            continue
+        record = {
+            "target": header.group("target"),
+            "transmitted": None,
+            "received": None,
+            "loss_pct": None,
+            "rtt_min": None,
+            "rtt_avg": None,
+            "rtt_max": None,
+        }
+        for follow in lines[i + 1:i + 5]:
+            counts = _PING_COUNTS_RE.search(follow)
+            if counts:
+                record["transmitted"] = _to_int(counts.group("tx"))
+                record["received"] = _to_int(counts.group("rx"))
+                record["loss_pct"] = _to_float(counts.group("loss"))
+            rtt = _PING_RTT_RE.search(follow)
+            if rtt:
+                record["rtt_min"] = _to_float(rtt.group("min"))
+                record["rtt_avg"] = _to_float(rtt.group("avg"))
+                record["rtt_max"] = _to_float(rtt.group("max"))
+        return [record]
+    return []
+
+
 # ==========================================================================
-# Tiers 5-10 -- SCAFFOLD ONLY (not yet implemented)
+# Tiers 5, 6, 8-10 -- SCAFFOLD ONLY (not yet implemented)
 # --------------------------------------------------------------------------
 # Each stub below is anchored to its section in ``sampleoutput.txt`` and
 # documents the intended record shape, so the later implementation pass only
@@ -375,18 +433,6 @@ def parse_radio_config(text: str) -> list[dict]:
     ``Mac address``, ``Frequency``) with ``... get_xxx:N`` settings (chwidth,
     mode, shortgi, wmm, hide_ssid, bintval, dtim_period, protmode, wds).
     Intended: one row per VAP per snapshot keyed by ``interface``.
-    """
-    return []  # not yet implemented
-
-
-def parse_ping(text: str) -> list[dict]:
-    """TODO(tier-7): parse the WAN ping statistics.
-
-    Anchor: ``--- www.linksys.com ping statistics ---``. Two lines:
-    ``N packets transmitted, N packets received, P% packet loss`` and
-    ``round-trip min/avg/max = a/b/c ms``.
-    Intended: one row per snapshot -- ``target``, ``transmitted``, ``received``,
-    ``loss_pct``, ``rtt_min``, ``rtt_avg``, ``rtt_max``.
     """
     return []  # not yet implemented
 

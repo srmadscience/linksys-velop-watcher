@@ -161,6 +161,46 @@ def test_parse_devinfo_keyed_by_uuid(dump):
 
 
 # --------------------------------------------------------------------------
+# ping statistics -> ping (Tier 7)
+# --------------------------------------------------------------------------
+
+
+def test_parse_ping_single_record(dump):
+    rows = parse.parse_ping(dump)
+    assert len(rows) == 1
+    r = rows[0]
+    assert r["target"] == "www.linksys.com"
+    assert r["transmitted"] == 2
+    assert r["received"] == 2
+    assert r["loss_pct"] == 0.0
+    assert r["rtt_min"] == 9.297
+    assert r["rtt_avg"] == 11.709
+    assert r["rtt_max"] == 14.122
+
+
+def test_parse_ping_total_loss_has_no_rtt():
+    """On 100% loss the router omits the round-trip line; counts still parse."""
+    text = (
+        "--- example.com ping statistics ---\n"
+        "3 packets transmitted, 0 packets received, 100% packet loss\n"
+    )
+    rows = parse.parse_ping(text)
+    assert len(rows) == 1
+    r = rows[0]
+    assert r["target"] == "example.com"
+    assert r["transmitted"] == 3
+    assert r["received"] == 0
+    assert r["loss_pct"] == 100.0
+    assert r["rtt_min"] is None
+    assert r["rtt_avg"] is None
+    assert r["rtt_max"] is None
+
+
+def test_parse_ping_missing_section():
+    assert parse.parse_ping("no ping here") == []
+
+
+# --------------------------------------------------------------------------
 # defensive behaviour
 # --------------------------------------------------------------------------
 
@@ -180,7 +220,6 @@ def test_parsers_return_empty_on_missing_sections():
 TIER_5_10_STUBS = (
     "parse_radio_stats",
     "parse_radio_config",
-    "parse_ping",
     "parse_nic_counters",
     "parse_system",
     "parse_lldp",

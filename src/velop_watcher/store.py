@@ -84,6 +84,20 @@ TIER1_DDL = (
     )
     """,
     """
+    CREATE TABLE IF NOT EXISTS velop.ping (
+        id TEXT PRIMARY KEY,
+        snapshot_id TEXT,
+        fetched_at TIMESTAMP WITH TIME ZONE,
+        target TEXT,
+        transmitted INTEGER,
+        received INTEGER,
+        loss_pct DOUBLE,
+        rtt_min DOUBLE,
+        rtt_avg DOUBLE,
+        rtt_max DOUBLE
+    )
+    """,
+    """
     CREATE TABLE IF NOT EXISTS velop.node (
         id TEXT PRIMARY KEY,
         snapshot_id TEXT,
@@ -118,6 +132,9 @@ _DEVICE_COLS = ("uuid", "mac", "ip", "conn", "status", "name", "fw_ver", "role",
 _WLAN_COLS = ("client_mac", "stat", "net", "node", "mcs", "rssi", "last_seen")
 _BACKHAUL_COLS = (
     "node_mac", "node_ip", "parent_ip", "intf", "chan", "rssi", "speed", "state", "timestamp",
+)
+_PING_COLS = (
+    "target", "transmitted", "received", "loss_pct", "rtt_min", "rtt_avg", "rtt_max",
 )
 _NODE_COLS = (
     "uuid", "mac", "ip", "name", "role", "sku", "serial_number", "fw_ver", "mode",
@@ -187,6 +204,8 @@ def store_tier1(conn, parsed: dict, snapshot_id: str, fetched_at: datetime) -> d
                                         parsed.get("wlan_clients", []), snapshot_id, fetched_at),
             "backhaul": _insert_rows(cur, "velop.backhaul", _BACKHAUL_COLS,
                                      parsed.get("backhaul", []), snapshot_id, fetched_at),
+            "ping": _insert_rows(cur, "velop.ping", _PING_COLS,
+                                 parsed.get("ping", []), snapshot_id, fetched_at),
             "node": _insert_rows(cur, "velop.node", _NODE_COLS,
                                  parsed.get("nodes", []), snapshot_id, fetched_at),
         }
