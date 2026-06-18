@@ -1,0 +1,45 @@
+"""Command-line entry point: fetch one snapshot and store it."""
+
+from __future__ import annotations
+
+import sys
+from datetime import datetime, timezone
+
+from .config import Config
+from .fetch import fetch_sysinfo, parse_generated_at, router_host
+from .store import connect, ensure_schema, store_sysinfo
+
+
+def main(argv: list[str] | None = None) -> int:
+    cfg = Config.from_env()
+
+    if not cfg.password:
+        print(
+            "error: router password not set. Export VELOP_PASSWORD before running.",
+            file=sys.stderr,
+        )
+        return 2
+
+    print(f"Fetching {cfg.router_url} (this can take a while) ...", file=sys.stderr)
+    text = fetch_sysinfo(cfg)
+    fetched_at = datetime.now(timezone.utc)
+    generated_at = parse_generated_at(text)
+    host = router_host(cfg.router_url)
+    print(
+        f"Fetched {len(text)} chars (router generated_at={generated_at}); storing ...",
+        file=sys.stderr,
+    )
+
+    conn = connect(cfg)
+    try:
+        ensure_schema(conn)
+        row_id = store_sysinfo(conn, text, fetched_at, generated_at, host)
+    finally:
+        conn.close()
+
+    print(f"Stored snapshot {row_id}", file=sys.stderr)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

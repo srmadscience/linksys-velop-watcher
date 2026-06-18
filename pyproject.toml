@@ -1,0 +1,26 @@
+[project]
+name = "linksys-velop-watcher"
+version = "0.1.0"
+description = "Fetch and archive Linksys Velop sysinfo.cgi output into CrateDB"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "requests>=2.31",
+    "crate>=1.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+velop-watcher = "velop_watcher.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
