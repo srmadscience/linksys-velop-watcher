@@ -399,79 +399,327 @@ def parse_ping(text: str) -> list[dict]:
 
 
 # ==========================================================================
-# Tiers 5, 6, 8-10 -- SCAFFOLD ONLY (not yet implemented)
-# --------------------------------------------------------------------------
-# Each stub below is anchored to its section in ``sampleoutput.txt`` and
-# documents the intended record shape, so the later implementation pass only
-# has to fill in the body. Like the Tier-1 parsers these return ``list[dict]``
-# (single-row sections return a one-element list) so ``store_tier1``-style bulk
-# insertion stays uniform. Until implemented they return ``[]`` -- callers and
-# tests can already import and exercise them without raising. DDL and CLI
-# wiring are deliberately deferred until each parser is real, so no empty
-# tables get created in the meantime.
+# Shared helpers for the free-form Tier 5/6/9/10 sections
 # ==========================================================================
+
+# A titled dashed header, e.g. ``------------- ath0 Settings -------------``.
+_DASH_TITLE_RE = re.compile(r"^-{5,}\s+.+\s+-{5,}\s*$")
+# ``Key = value`` line (used by the apstats counters).
+_KV_RE = re.compile(r"^(?P<key>\S.*?)\s*=\s*(?P<val>.+?)\s*$")
+
+
+def _snake(label: str) -> str:
+    """Lower-case a free-text label into a snake_case key."""
+    return re.sub(r"[^\w]+", "_", label.strip().lower()).strip("_")
+
+
+def _coerce(value: str):
+    """Best-effort numeric coercion; non-numeric values (``<DISABLED>``) pass through."""
+    value = value.strip()
+    try:
+        return int(value)
+    except ValueError:
+        pass
+    try:
+        return float(value)
+    except ValueError:
+        return value
+
+
+def _bounded_section(lines: list[str], start: int) -> int:
+    """Index where the section opened at ``start`` ends.
+
+    Stops at the next titled dashed header or ``====`` banner -- the dump's two
+    ways of starting a new section.
+    """
+    for j in range(start, len(lines)):
+        if _DASH_TITLE_RE.match(lines[j]) or lines[j].startswith("===="):
+            return j
+    return len(lines)
+
+
+# --------------------------------------------------------------------------
+# Tier 5: wifi apstats -> velop.radio_stats
+# --------------------------------------------------------------------------
+
+_APSTATS_HEADER_RE = re.compile(r"^-{5,}\s+wifi apstats section\s+-{5,}\s*$")
+_RADIO_BAND_RE = re.compile(r"^radio level information of\s+(?P<band>.+?):\s*$")
+_RADIO_NAME_RE = re.compile(r"^Radio Level Stats:\s+(?P<radio>\S+)")
 
 
 def parse_radio_stats(text: str) -> list[dict]:
-    """TODO(tier-5): parse the ``wifi apstats section``.
+    """Parse the ``wifi apstats section`` into one record per radio.
 
-    Anchor: ``------------- wifi apstats section -------------`` (one block per
-    radio, e.g. ``Radio Level Stats: wifi1`` for 2.4G). Body is ``Label = value``
-    counter lines (``Tx Data Packets``, ``Rx Data Bytes``, ``Rx RSSI``,
-    ``Tx failures`` ...), some with nested ``per AC`` sub-counters.
-    Intended: one row per radio per snapshot, columns ``radio``/``band`` plus a
-    snake_cased column (or an OBJECT blob) per counter.
+    Each radio block opens with ``radio level information of <band>:`` then
+    ``Radio Level Stats: <radio>``, followed by ``Label = value`` counters. All
+    counters land in a ``stats`` OBJECT (snake_cased keys, numerics coerced);
+    nested ``... per AC:`` / ``Co-located RNR stats:`` sub-counters are prefixed
+    with their group so the duplicate AC labels don't collide.
     """
-    return []  # not yet implemented
+    lines = text.splitlines()
+    start = next((i + 1 for i, ln in enumerate(lines) if _APSTATS_HEADER_RE.match(ln)), None)
+    if start is None:
+        return []
+    end = _bounded_section(lines, start)
+
+    radios: list[dict] = []
+    current: Optional[dict] = None
+    context: Optional[str] = None
+    last_band: Optional[str] = None  # band appears one line before the radio name
+    for line in lines[start:end]:
+        band = _RADIO_BAND_RE.match(line)
+        if band:
+            last_band = band.group("band")
+            current = None
+            context = None
+            continue
+        name = _RADIO_NAME_RE.match(line)
+        if name:
+            current = {"radio": name.group("radio"), "band": last_band, "stats": {}}
+            radios.append(current)
+            context = None
+            continue
+        if current is None or not line.strip():
+            continue
+        stripped = line.strip()
+        indented = line[0] in " \t"
+        kv = _KV_RE.match(stripped)
+        if kv:
+            key = _snake(kv.group("key"))
+            if indented and context:
+                key = f"{context}_{key}"
+            else:
+                context = None
+            current["stats"][key] = _coerce(kv.group("val"))
+        elif not indented and stripped.endswith(":"):
+            context = _snake(stripped[:-1])
+        elif not indented:
+            context = None
+    return radios
+
+
+# --------------------------------------------------------------------------
+# Tier 6: athN Settings -> velop.radio_config
+# --------------------------------------------------------------------------
+
+_ATH_HEADER_RE = re.compile(r"^-{5,}\s+(?P<iface>ath\w+)\s+Settings\s+-{5,}\s*$")
+# ``get_chwidth:0`` / ``g_disablecoext:0`` style setting tokens.
+_SETTING_RE = re.compile(r"\b(?:get_|g_)(?P<key>\w+):(?P<val>\S+)")
 
 
 def parse_radio_config(text: str) -> list[dict]:
-    """TODO(tier-6): parse the per-VAP ``athN Settings`` blocks.
+    """Parse the per-VAP ``athN Settings`` blocks into one record per interface.
 
-    Anchor: ``------------- ath0 Settings -------------`` (ath0/1/2/3/10 ...).
-    Each block mixes ``Key: value`` lines (``Interface name``, ``SSID``,
-    ``Mac address``, ``Frequency``) with ``... get_xxx:N`` settings (chwidth,
-    mode, shortgi, wmm, hide_ssid, bintval, dtim_period, protmode, wds).
-    Intended: one row per VAP per snapshot keyed by ``interface``.
+    Promotes ``interface``/``ssid``/``mac``/``frequency`` and collects every
+    ``get_xxx:`` / ``g_xxx:`` token into a ``settings`` OBJECT. The embedded
+    ``Current connected client(s)`` dump (client rows + per-client RSSI blocks)
+    carries no setting tokens, so it is ignored naturally.
     """
-    return []  # not yet implemented
+    lines = text.splitlines()
+    configs: list[dict] = []
+    for i, line in enumerate(lines):
+        header = _ATH_HEADER_RE.match(line)
+        if not header:
+            continue
+        end = _bounded_section(lines, i + 1)
+        record = {
+            "interface": header.group("iface"),
+            "ssid": None,
+            "mac": None,
+            "frequency": None,
+            "settings": {},
+        }
+        for body in lines[i + 1:end]:
+            if body.startswith("SSID:"):
+                record["ssid"] = _clean(body.split(":", 1)[1])
+            elif body.startswith("Mac address:"):
+                record["mac"] = _clean(body.split(":", 1)[1])
+            elif body.startswith("Frequency:"):
+                record["frequency"] = _clean(body.split(":", 1)[1])
+            for m in _SETTING_RE.finditer(body):
+                record["settings"][m.group("key")] = _coerce(m.group("val"))
+        configs.append(record)
+    return configs
+
+
+# --------------------------------------------------------------------------
+# Tier 8: NIC Counters -> velop.nic_counter
+# --------------------------------------------------------------------------
+
+_NIC_RE = re.compile(
+    r"^\s*(?P<intf>\S+)\s*:\s*RX bytes:(?P<rx>\d+).*?TX bytes:(?P<tx>\d+)"
+)
 
 
 def parse_nic_counters(text: str) -> list[dict]:
-    """TODO(tier-8): parse the ``NIC Counters`` section.
+    """Parse the ``NIC Counters`` section: one row per interface.
 
-    Anchor: ``NIC Counters``. One line per interface, e.g.
-    ``br0 : RX bytes:36301150454 (33.8 GiB)  TX bytes:166679092879 (155.2 GiB)``.
-    Intended: one row per interface per snapshot -- ``intf``, ``rx_bytes``,
-    ``tx_bytes`` (parse the raw byte counts; the human GiB suffix is derivable).
+    Each line is ``<intf> : RX bytes:<n> (..)  TX bytes:<n> (..)``; the raw
+    byte counts are parsed (the human GiB suffix is derivable and dropped).
     """
-    return []  # not yet implemented
+    lines = text.splitlines()
+    start = next((i + 1 for i, ln in enumerate(lines) if ln.strip() == "NIC Counters"), None)
+    if start is None:
+        return []
+
+    rows: list[dict] = []
+    for line in lines[start:]:
+        if not line.strip():
+            break
+        m = _NIC_RE.match(line)
+        if not m:
+            break
+        rows.append(
+            {
+                "intf": m.group("intf"),
+                "rx_bytes": _to_int(m.group("rx")),
+                "tx_bytes": _to_int(m.group("tx")),
+            }
+        )
+    return rows
+
+
+# --------------------------------------------------------------------------
+# Tier 9: uptime / memory / cpu -> velop.system
+# --------------------------------------------------------------------------
+
+_UPTIME_RE = re.compile(
+    r"\bup\s+(?:(?P<days>\d+)\s+days?,\s+)?"
+    r"(?:(?P<hh>\d+):(?P<mm>\d+)|(?P<mins>\d+)\s+min)"
+)
+_LOADAVG_RE = re.compile(r"load average:\s+(?P<l1>[\d.]+),\s+(?P<l5>[\d.]+),\s+(?P<l15>[\d.]+)")
+_MEM_RE = re.compile(
+    r"^Mem:\s+(?P<total>\d+)\s+(?P<used>\d+)\s+(?P<free>\d+)\s+"
+    r"(?P<shared>\d+)\s+(?P<buffers>\d+)\s+(?P<cached>\d+)"
+)
+_CPU_IDLE_RE = re.compile(r"^CPU:.*?(?P<idle>[\d.]+)%\s+idle")
 
 
 def parse_system(text: str) -> list[dict]:
-    """TODO(tier-9): parse overall system health.
+    """Parse scattered system-health fields into a single per-snapshot record.
 
-    Sources are scattered near the top of the dump: ``UpTime:`` /
-    ``load average:`` line, the ``Memory Use:`` ``free`` table (Mem total/used/
-    free/shared/buffers/cached), and the ``CPU:`` usr/sys/idle line.
-    Intended: one row per snapshot -- ``uptime_secs``, ``load_1``/``load_5``/
-    ``load_15``, ``mem_total``/``mem_used``/``mem_free``, ``cpu_idle_pct`` ...
+    Pulls uptime + load average from the ``up ... load average:`` line, the
+    ``Mem:`` row of the ``free`` table, and CPU idle from the ``CPU:`` line.
+    Returns ``[]`` only if none of these are present.
     """
-    return []  # not yet implemented
+    record = {
+        "uptime_secs": None,
+        "load_1": None,
+        "load_5": None,
+        "load_15": None,
+        "mem_total": None,
+        "mem_used": None,
+        "mem_free": None,
+        "mem_shared": None,
+        "mem_buffers": None,
+        "mem_cached": None,
+        "cpu_idle_pct": None,
+    }
+    found = False
+    for line in text.splitlines():
+        up = _UPTIME_RE.search(line)
+        if up and record["uptime_secs"] is None:
+            days = int(up.group("days") or 0)
+            if up.group("mins") is not None:
+                record["uptime_secs"] = days * 86400 + int(up.group("mins")) * 60
+            else:
+                record["uptime_secs"] = (
+                    days * 86400 + int(up.group("hh")) * 3600 + int(up.group("mm")) * 60
+                )
+            found = True
+        load = _LOADAVG_RE.search(line)
+        if load and record["load_1"] is None:
+            record["load_1"] = _to_float(load.group("l1"))
+            record["load_5"] = _to_float(load.group("l5"))
+            record["load_15"] = _to_float(load.group("l15"))
+            found = True
+        mem = _MEM_RE.match(line)
+        if mem and record["mem_total"] is None:
+            for key in ("total", "used", "free", "shared", "buffers", "cached"):
+                record[f"mem_{key}"] = _to_int(mem.group(key))
+            found = True
+        cpu = _CPU_IDLE_RE.match(line)
+        if cpu and record["cpu_idle_pct"] is None:
+            record["cpu_idle_pct"] = _to_float(cpu.group("idle"))
+            found = True
+    return [record] if found else []
+
+
+# --------------------------------------------------------------------------
+# Tier 10: LLDP Information -> velop.lldp_neighbor
+# --------------------------------------------------------------------------
+
+_LLDP_HEADER_RE = re.compile(r"^=+\s+LLDP Information\s+=+\s*$")
+_LLDP_IFACE_RE = re.compile(r"^Interface:\s+(?P<iface>[^,]+),.*?RID:\s+(?P<rid>\d+)")
 
 
 def parse_lldp(text: str) -> list[dict]:
-    """TODO(tier-10): parse the ``LLDP Information`` neighbour list.
+    """Parse the ``LLDP Information`` neighbour list: one row per neighbour.
 
-    Anchor: ``========================== LLDP Information ==========================``.
-    Neighbours are separated by dashed lines; each has ``Interface:`` plus a
-    ``Chassis:`` block (``ChassisID``, ``SysName``, ``SysDescr``, ``MgmtIP``,
-    repeated ``Capability:`` lines) and a ``Port:`` block (``PortID``,
-    ``PortDescr``).
-    Intended: one row per neighbour per snapshot -- ``interface``, ``chassis_id``,
-    ``sys_name``, ``mgmt_ip``, ``port_id``, ``port_descr``, ``capabilities``.
+    Each neighbour opens with an ``Interface:`` line and carries a ``Chassis:``
+    block (ChassisID/SysName/SysDescr/MgmtIP + repeated ``Capability:`` lines)
+    and a ``Port:`` block. ``mac `` prefixes on the IDs are stripped; the
+    capabilities collapse into an OBJECT of name -> bool (``on``).
     """
-    return []  # not yet implemented
+    lines = text.splitlines()
+    start = next((i + 1 for i, ln in enumerate(lines) if _LLDP_HEADER_RE.match(ln)), None)
+    if start is None:
+        return []
+    end = next((j for j in range(start, len(lines)) if lines[j].startswith("====")), len(lines))
+
+    neighbors: list[dict] = []
+    current: Optional[dict] = None
+    section = None  # 'chassis' or 'port' -- disambiguates the shared *ID lines
+    for line in lines[start:end]:
+        iface = _LLDP_IFACE_RE.match(line.strip())
+        if iface:
+            current = {
+                "interface": _clean(iface.group("iface")),
+                "rid": iface.group("rid"),
+                "chassis_id": None,
+                "sys_name": None,
+                "sys_descr": None,
+                "mgmt_ip": None,
+                "port_id": None,
+                "port_descr": None,
+                "capabilities": {},
+            }
+            neighbors.append(current)
+            section = None
+            continue
+        if current is None:
+            continue
+        stripped = line.strip()
+        if stripped == "Chassis:":
+            section = "chassis"
+        elif stripped == "Port:":
+            section = "port"
+        elif stripped.startswith("ChassisID:"):
+            current["chassis_id"] = _strip_mac(stripped.split(":", 1)[1])
+        elif stripped.startswith("SysName:"):
+            current["sys_name"] = _clean(stripped.split(":", 1)[1])
+        elif stripped.startswith("SysDescr:"):
+            current["sys_descr"] = _clean(stripped.split(":", 1)[1])
+        elif stripped.startswith("MgmtIP:"):
+            current["mgmt_ip"] = _clean(stripped.split(":", 1)[1])
+        elif stripped.startswith("PortID:"):
+            current["port_id"] = _strip_mac(stripped.split(":", 1)[1])
+        elif stripped.startswith("PortDescr:"):
+            current["port_descr"] = _clean(stripped.split(":", 1)[1])
+        elif stripped.startswith("Capability:"):
+            name, _, state = stripped.split(":", 1)[1].partition(",")
+            name = _clean(name)
+            if name:
+                current["capabilities"][name] = state.strip().lower() == "on"
+    return neighbors
+
+
+def _strip_mac(value: str) -> Optional[str]:
+    """Drop the ``mac `` prefix LLDP puts before chassis/port identifiers."""
+    value = value.strip()
+    if value.lower().startswith("mac "):
+        value = value[4:].strip()
+    return value or None
 
 
 # --------------------------------------------------------------------------

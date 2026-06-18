@@ -124,6 +124,73 @@ TIER1_DDL = (
         devinfo OBJECT(IGNORED)
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS velop.radio_stats (
+        id TEXT PRIMARY KEY,
+        snapshot_id TEXT,
+        fetched_at TIMESTAMP WITH TIME ZONE,
+        radio TEXT,
+        band TEXT,
+        -- ~54 apstats counters per radio; columns vary, so keep them as a blob.
+        stats OBJECT(IGNORED)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS velop.radio_config (
+        id TEXT PRIMARY KEY,
+        snapshot_id TEXT,
+        fetched_at TIMESTAMP WITH TIME ZONE,
+        interface TEXT,
+        ssid TEXT,
+        mac TEXT,
+        frequency TEXT,
+        settings OBJECT(IGNORED)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS velop.nic_counter (
+        id TEXT PRIMARY KEY,
+        snapshot_id TEXT,
+        fetched_at TIMESTAMP WITH TIME ZONE,
+        intf TEXT,
+        rx_bytes BIGINT,
+        tx_bytes BIGINT
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS velop.system (
+        id TEXT PRIMARY KEY,
+        snapshot_id TEXT,
+        fetched_at TIMESTAMP WITH TIME ZONE,
+        uptime_secs BIGINT,
+        load_1 DOUBLE,
+        load_5 DOUBLE,
+        load_15 DOUBLE,
+        mem_total BIGINT,
+        mem_used BIGINT,
+        mem_free BIGINT,
+        mem_shared BIGINT,
+        mem_buffers BIGINT,
+        mem_cached BIGINT,
+        cpu_idle_pct DOUBLE
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS velop.lldp_neighbor (
+        id TEXT PRIMARY KEY,
+        snapshot_id TEXT,
+        fetched_at TIMESTAMP WITH TIME ZONE,
+        interface TEXT,
+        rid TEXT,
+        chassis_id TEXT,
+        sys_name TEXT,
+        sys_descr TEXT,
+        mgmt_ip TEXT,
+        port_id TEXT,
+        port_descr TEXT,
+        capabilities OBJECT(IGNORED)
+    )
+    """,
 )
 
 # Column order per table for executemany inserts. id/snapshot_id/fetched_at are
@@ -140,6 +207,17 @@ _NODE_COLS = (
     "uuid", "mac", "ip", "name", "role", "sku", "serial_number", "fw_ver", "mode",
     "model_base", "model_number", "hw_version", "userap2g_bssid", "userap2g_channel",
     "userap5gl_bssid", "userap5gl_channel", "userap5gh_bssid", "userap5gh_channel", "devinfo",
+)
+_RADIO_STATS_COLS = ("radio", "band", "stats")
+_RADIO_CONFIG_COLS = ("interface", "ssid", "mac", "frequency", "settings")
+_NIC_COUNTER_COLS = ("intf", "rx_bytes", "tx_bytes")
+_SYSTEM_COLS = (
+    "uptime_secs", "load_1", "load_5", "load_15", "mem_total", "mem_used",
+    "mem_free", "mem_shared", "mem_buffers", "mem_cached", "cpu_idle_pct",
+)
+_LLDP_COLS = (
+    "interface", "rid", "chassis_id", "sys_name", "sys_descr", "mgmt_ip",
+    "port_id", "port_descr", "capabilities",
 )
 
 
@@ -208,6 +286,16 @@ def store_tier1(conn, parsed: dict, snapshot_id: str, fetched_at: datetime) -> d
                                  parsed.get("ping", []), snapshot_id, fetched_at),
             "node": _insert_rows(cur, "velop.node", _NODE_COLS,
                                  parsed.get("nodes", []), snapshot_id, fetched_at),
+            "radio_stats": _insert_rows(cur, "velop.radio_stats", _RADIO_STATS_COLS,
+                                        parsed.get("radio_stats", []), snapshot_id, fetched_at),
+            "radio_config": _insert_rows(cur, "velop.radio_config", _RADIO_CONFIG_COLS,
+                                         parsed.get("radio_config", []), snapshot_id, fetched_at),
+            "nic_counter": _insert_rows(cur, "velop.nic_counter", _NIC_COUNTER_COLS,
+                                        parsed.get("nic_counters", []), snapshot_id, fetched_at),
+            "system": _insert_rows(cur, "velop.system", _SYSTEM_COLS,
+                                   parsed.get("system", []), snapshot_id, fetched_at),
+            "lldp_neighbor": _insert_rows(cur, "velop.lldp_neighbor", _LLDP_COLS,
+                                          parsed.get("lldp", []), snapshot_id, fetched_at),
         }
     finally:
         cur.close()

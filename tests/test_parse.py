@@ -214,22 +214,106 @@ def test_parsers_return_empty_on_missing_sections():
 
 
 # --------------------------------------------------------------------------
-# Tiers 5-10 scaffold -- stubs exist and are inert until implemented
+# wifi apstats -> radio_stats (Tier 5)
 # --------------------------------------------------------------------------
 
-TIER_5_10_STUBS = (
-    "parse_radio_stats",
-    "parse_radio_config",
-    "parse_nic_counters",
-    "parse_system",
-    "parse_lldp",
-)
+
+def test_parse_radio_stats_per_radio(dump):
+    rows = parse.parse_radio_stats(dump)
+    assert [(r["radio"], r["band"]) for r in rows] == [
+        ("wifi1", "2.4G"),
+        ("wifi0", "5G low"),
+        ("wifi2", "5G high"),
+    ]
 
 
-@pytest.mark.parametrize("name", TIER_5_10_STUBS)
-def test_tier5_10_stub_returns_empty_on_real_dump(name, dump):
-    """Each stub is importable and inert (returns []) without raising on the
-    real dump -- the contract the later implementation pass will replace."""
-    fn = getattr(parse, name)
-    assert fn(dump) == []
-    assert fn("") == []
+def test_parse_radio_stats_counters_and_nested(dump):
+    rows = parse.parse_radio_stats(dump)
+    wifi1 = next(r for r in rows if r["radio"] == "wifi1")
+    assert wifi1["stats"]["tx_data_packets"] == 5473615
+    assert wifi1["stats"]["rx_rssi"] == 27
+    assert wifi1["stats"]["channel_utilization_0_255"] == "<DISABLED>"  # non-numeric kept
+    # Nested per-AC counters are prefixed so the duplicate "Best effort" labels
+    # under Tx and Rx do not collide.
+    assert wifi1["stats"]["tx_data_packets_per_ac_best_effort"] == 5072156
+    assert wifi1["stats"]["rx_data_packets_per_ac_best_effort"] == 1229862
+
+
+# --------------------------------------------------------------------------
+# athN Settings -> radio_config (Tier 6)
+# --------------------------------------------------------------------------
+
+
+def test_parse_radio_config_vaps(dump):
+    rows = parse.parse_radio_config(dump)
+    assert [r["interface"] for r in rows] == ["ath0", "ath2", "ath1", "ath3", "ath10"]
+
+
+def test_parse_radio_config_fields_and_settings(dump):
+    rows = parse.parse_radio_config(dump)
+    ath0 = next(r for r in rows if r["interface"] == "ath0")
+    assert ath0["ssid"] == "CodeSpooks7"
+    assert ath0["mac"] == "D8:EC:5E:8E:ED:9F"
+    assert ath0["frequency"] == "2.472GHz"
+    assert ath0["settings"]["chwidth"] == 0
+    assert ath0["settings"]["mode"] == "11GHE20"
+    assert ath0["settings"]["disablecoext"] == 0  # the g_ prefixed token
+
+
+# --------------------------------------------------------------------------
+# NIC Counters -> nic_counters (Tier 8)
+# --------------------------------------------------------------------------
+
+
+def test_parse_nic_counters(dump):
+    rows = parse.parse_nic_counters(dump)
+    assert [r["intf"] for r in rows] == ["br0", "eth0", "eth1", "eth2"]
+    br0 = rows[0]
+    assert br0["rx_bytes"] == 36301150454
+    assert br0["tx_bytes"] == 166679092879
+    assert rows[3] == {"intf": "eth2", "rx_bytes": 0, "tx_bytes": 0}
+
+
+# --------------------------------------------------------------------------
+# uptime / memory / cpu -> system (Tier 9)
+# --------------------------------------------------------------------------
+
+
+def test_parse_system_single_record(dump):
+    rows = parse.parse_system(dump)
+    assert len(rows) == 1
+    r = rows[0]
+    assert r["uptime_secs"] == 5 * 86400 + 12 * 3600 + 13 * 60  # "5 days, 12:13"
+    assert (r["load_1"], r["load_5"], r["load_15"]) == (1.17, 1.16, 1.18)
+    assert r["mem_total"] == 424156
+    assert r["mem_free"] == 149808
+    assert r["cpu_idle_pct"] == 97.6
+
+
+def test_parse_system_minutes_only_uptime():
+    rows = parse.parse_system(" 09:10:11 up 42 min,  0 users,  load average: 0.5, 0.4, 0.3\n")
+    assert rows[0]["uptime_secs"] == 42 * 60
+    assert rows[0]["load_1"] == 0.5
+
+
+# --------------------------------------------------------------------------
+# LLDP Information -> lldp (Tier 10)
+# --------------------------------------------------------------------------
+
+
+def test_parse_lldp_neighbors(dump):
+    rows = parse.parse_lldp(dump)
+    assert len(rows) == 3
+    n = next(r for r in rows if r["rid"] == "11")
+    assert n["interface"] == "eth1"
+    assert n["chassis_id"] == "c4:41:1e:ec:42:75"  # "mac " prefix stripped
+    assert n["sys_name"] == "Linksys14547"
+    assert n["sys_descr"] == "Velop"
+    assert n["mgmt_ip"] == "10.13.1.9"
+    assert n["port_descr"] == "eth1"
+    assert n["capabilities"] == {
+        "Bridge": True,
+        "Router": True,
+        "Wlan": True,
+        "Station": False,
+    }

@@ -7,7 +7,18 @@ from datetime import datetime, timezone
 
 from .config import Config
 from .fetch import fetch_sysinfo, parse_generated_at, router_host
-from .parse import parse_backhaul, parse_devices, parse_nodes, parse_ping, parse_wlan_clients
+from .parse import (
+    parse_backhaul,
+    parse_devices,
+    parse_lldp,
+    parse_nic_counters,
+    parse_nodes,
+    parse_ping,
+    parse_radio_config,
+    parse_radio_stats,
+    parse_system,
+    parse_wlan_clients,
+)
 from .store import connect, ensure_schema, store_sysinfo, store_tier1
 
 
@@ -37,6 +48,11 @@ def main(argv: list[str] | None = None) -> int:
         "backhaul": parse_backhaul(text),
         "ping": parse_ping(text),
         "nodes": parse_nodes(text),
+        "radio_stats": parse_radio_stats(text),
+        "radio_config": parse_radio_config(text),
+        "nic_counters": parse_nic_counters(text),
+        "system": parse_system(text),
+        "lldp": parse_lldp(text),
     }
 
     conn = connect(cfg)
