@@ -171,3 +171,26 @@ def test_parsers_return_empty_on_missing_sections():
     assert parse.parse_backhaul("nothing here") == []
     assert parse.parse_nodes("nothing here") == []
     assert parse.parse_devinfo("nothing here") == {}
+
+
+# --------------------------------------------------------------------------
+# Tiers 5-10 scaffold -- stubs exist and are inert until implemented
+# --------------------------------------------------------------------------
+
+TIER_5_10_STUBS = (
+    "parse_radio_stats",
+    "parse_radio_config",
+    "parse_ping",
+    "parse_nic_counters",
+    "parse_system",
+    "parse_lldp",
+)
+
+
+@pytest.mark.parametrize("name", TIER_5_10_STUBS)
+def test_tier5_10_stub_returns_empty_on_real_dump(name, dump):
+    """Each stub is importable and inert (returns []) without raising on the
+    real dump -- the contract the later implementation pass will replace."""
+    fn = getattr(parse, name)
+    assert fn(dump) == []
+    assert fn("") == []

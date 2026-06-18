@@ -340,6 +340,94 @@ def parse_nodes(text: str) -> list[dict]:
     return nodes
 
 
+# ==========================================================================
+# Tiers 5-10 -- SCAFFOLD ONLY (not yet implemented)
+# --------------------------------------------------------------------------
+# Each stub below is anchored to its section in ``sampleoutput.txt`` and
+# documents the intended record shape, so the later implementation pass only
+# has to fill in the body. Like the Tier-1 parsers these return ``list[dict]``
+# (single-row sections return a one-element list) so ``store_tier1``-style bulk
+# insertion stays uniform. Until implemented they return ``[]`` -- callers and
+# tests can already import and exercise them without raising. DDL and CLI
+# wiring are deliberately deferred until each parser is real, so no empty
+# tables get created in the meantime.
+# ==========================================================================
+
+
+def parse_radio_stats(text: str) -> list[dict]:
+    """TODO(tier-5): parse the ``wifi apstats section``.
+
+    Anchor: ``------------- wifi apstats section -------------`` (one block per
+    radio, e.g. ``Radio Level Stats: wifi1`` for 2.4G). Body is ``Label = value``
+    counter lines (``Tx Data Packets``, ``Rx Data Bytes``, ``Rx RSSI``,
+    ``Tx failures`` ...), some with nested ``per AC`` sub-counters.
+    Intended: one row per radio per snapshot, columns ``radio``/``band`` plus a
+    snake_cased column (or an OBJECT blob) per counter.
+    """
+    return []  # not yet implemented
+
+
+def parse_radio_config(text: str) -> list[dict]:
+    """TODO(tier-6): parse the per-VAP ``athN Settings`` blocks.
+
+    Anchor: ``------------- ath0 Settings -------------`` (ath0/1/2/3/10 ...).
+    Each block mixes ``Key: value`` lines (``Interface name``, ``SSID``,
+    ``Mac address``, ``Frequency``) with ``... get_xxx:N`` settings (chwidth,
+    mode, shortgi, wmm, hide_ssid, bintval, dtim_period, protmode, wds).
+    Intended: one row per VAP per snapshot keyed by ``interface``.
+    """
+    return []  # not yet implemented
+
+
+def parse_ping(text: str) -> list[dict]:
+    """TODO(tier-7): parse the WAN ping statistics.
+
+    Anchor: ``--- www.linksys.com ping statistics ---``. Two lines:
+    ``N packets transmitted, N packets received, P% packet loss`` and
+    ``round-trip min/avg/max = a/b/c ms``.
+    Intended: one row per snapshot -- ``target``, ``transmitted``, ``received``,
+    ``loss_pct``, ``rtt_min``, ``rtt_avg``, ``rtt_max``.
+    """
+    return []  # not yet implemented
+
+
+def parse_nic_counters(text: str) -> list[dict]:
+    """TODO(tier-8): parse the ``NIC Counters`` section.
+
+    Anchor: ``NIC Counters``. One line per interface, e.g.
+    ``br0 : RX bytes:36301150454 (33.8 GiB)  TX bytes:166679092879 (155.2 GiB)``.
+    Intended: one row per interface per snapshot -- ``intf``, ``rx_bytes``,
+    ``tx_bytes`` (parse the raw byte counts; the human GiB suffix is derivable).
+    """
+    return []  # not yet implemented
+
+
+def parse_system(text: str) -> list[dict]:
+    """TODO(tier-9): parse overall system health.
+
+    Sources are scattered near the top of the dump: ``UpTime:`` /
+    ``load average:`` line, the ``Memory Use:`` ``free`` table (Mem total/used/
+    free/shared/buffers/cached), and the ``CPU:`` usr/sys/idle line.
+    Intended: one row per snapshot -- ``uptime_secs``, ``load_1``/``load_5``/
+    ``load_15``, ``mem_total``/``mem_used``/``mem_free``, ``cpu_idle_pct`` ...
+    """
+    return []  # not yet implemented
+
+
+def parse_lldp(text: str) -> list[dict]:
+    """TODO(tier-10): parse the ``LLDP Information`` neighbour list.
+
+    Anchor: ``========================== LLDP Information ==========================``.
+    Neighbours are separated by dashed lines; each has ``Interface:`` plus a
+    ``Chassis:`` block (``ChassisID``, ``SysName``, ``SysDescr``, ``MgmtIP``,
+    repeated ``Capability:`` lines) and a ``Port:`` block (``PortID``,
+    ``PortDescr``).
+    Intended: one row per neighbour per snapshot -- ``interface``, ``chassis_id``,
+    ``sys_name``, ``mgmt_ip``, ``port_id``, ``port_descr``, ``capabilities``.
+    """
+    return []  # not yet implemented
+
+
 # --------------------------------------------------------------------------
 # small numeric coercions
 # --------------------------------------------------------------------------
