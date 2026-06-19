@@ -3,23 +3,30 @@
 -- Per-snapshot throughput & link-quality rates derived from velop.radio_stats.
 --
 -- WHY THIS EXISTS / THE GOTCHA:
---   Grafana reaches CrateDB over the PostgreSQL wire protocol (port 5432) using
---   the *extended* query protocol (Parse/Bind/Execute). CrateDB's support for
---   richer SQL through that path is weaker than its HTTP endpoint (port 4200,
---   used by the Crate Admin UI and the `crate` Python client): window functions
---   (LAG/OVER) and complex multi-CTE / multi-join queries that run fine in the
---   Crate UI come back as an EMPTY frame (HTTP 200, zero rows) in Grafana --
---   silently, with no error. See: "raw text works in Crate, silence in Grafana".
+--   Grafana's PostgreSQL datasource silently returns an EMPTY frame (HTTP 200,
+--   zero rows, no error) when a result column has a pg type its frame converter
+--   can't handle -- most commonly NUMERIC (OID 1700). This is a Grafana-side
+--   conversion fault, NOT a CrateDB pg-wire limitation: the very same query
+--   returns its rows correctly over the HTTP endpoint (4200, the Crate UI /
+--   `crate` client), over psql (simple protocol), and over asyncpg (extended
+--   Parse/Bind/Execute). The usual trigger is the two-argument
+--   ROUND(value, scale), which CrateDB types as NUMERIC.
 --
---   The fix is to keep all complexity SERVER-SIDE in a VIEW and let Grafana send
---   only a flat SELECT ... WHERE ... ORDER BY against it.
+--   THE FIX: cast every computed numeric column to DOUBLE PRECISION (float8,
+--   OID 701) -- e.g. ROUND(..., 4)::DOUBLE PRECISION -- which Grafana renders.
+--   Query *shape* is not the issue: window functions, multi-CTE/multi-join, and
+--   TIMESTAMP-equality joins all work fine over pg-wire. (A full reproduction of
+--   the NUMERIC/Grafana behaviour lives in crate_issue/, which is git-ignored.)
+--
+--   Keeping the rate logic in a server-side VIEW and letting Grafana send only a
+--   flat SELECT against it is still good practice for readability, but the
+--   load-bearing change is the ::DOUBLE PRECISION cast on the computed columns.
 --
 -- radio_stats counters are cumulative since the node booted, so a "rate" is the
 -- delta between a snapshot and its immediate predecessor for the same radio,
--- divided by the elapsed time. We compute that with a self-join (NOT a window
--- function) so it survives the pg wire path. All joins are on text (band/radio)
--- or BIGINT epoch-ms (t_ms) keys -- never on a TIMESTAMP equality, which is also
--- fragile over pg. `fetched_at` is carried only for display on the time axis.
+-- divided by the elapsed time. We compute that with a self-join; joins are on
+-- text (band/radio) or BIGINT epoch-ms (t_ms) keys. `fetched_at` is carried
+-- only for display on the time axis.
 --
 -- USAGE:
 --   1. Run the CREATE VIEW below ONCE in the Crate Admin UI (HTTP endpoint),
@@ -54,9 +61,11 @@ SELECT
   cur.fetched_at,
   cur.t_ms,
   p.band || ' / ' || p.radio AS metric,
-  -- throughput = delta bytes * 8 bits / elapsed seconds / 1e6 -> Mbps
-  ROUND((cur.tx_bytes - prv.tx_bytes) * 8.0 / ((p.cur_ms - p.prev_ms) / 1000.0) / 1e6, 4) AS tx_mbps,
-  ROUND((cur.rx_bytes - prv.rx_bytes) * 8.0 / ((p.cur_ms - p.prev_ms) / 1000.0) / 1e6, 4) AS rx_mbps,
+  -- throughput = delta bytes * 8 bits / elapsed seconds / 1e6 -> Mbps.
+  -- ::DOUBLE PRECISION on each ROUND() is mandatory: the 2-arg ROUND yields
+  -- NUMERIC, which Grafana's frame converter drops (empty panel). See header.
+  ROUND((cur.tx_bytes - prv.tx_bytes) * 8.0 / ((p.cur_ms - p.prev_ms) / 1000.0) / 1e6, 4)::DOUBLE PRECISION AS tx_mbps,
+  ROUND((cur.rx_bytes - prv.rx_bytes) * 8.0 / ((p.cur_ms - p.prev_ms) / 1000.0) / 1e6, 4)::DOUBLE PRECISION AS rx_mbps,
   cur.rx_rssi,
   cur.noise_floor_dbm,
   -- rough SNR margin: rx_rssi minus the (negative) noise floor
@@ -64,7 +73,8 @@ SELECT
   cur.self_bss_util,
   cur.obss_util,
   -- tx failure rate over the interval, as a percentage of tx packets
-  ROUND(100.0 * (cur.tx_failures - prv.tx_failures) / NULLIF(cur.tx_pkts - prv.tx_pkts, 0), 3) AS tx_fail_pct
+  -- (::DOUBLE PRECISION for the same Grafana-drops-NUMERIC reason as above)
+  ROUND(100.0 * (cur.tx_failures - prv.tx_failures) / NULLIF(cur.tx_pkts - prv.tx_pkts, 0), 3)::DOUBLE PRECISION AS tx_fail_pct
 FROM pairs p
 JOIN s cur ON cur.band = p.band AND cur.radio = p.radio AND cur.t_ms = p.cur_ms
 JOIN s prv ON prv.band = p.band AND prv.radio = p.radio AND prv.t_ms = p.prev_ms

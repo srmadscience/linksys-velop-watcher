@@ -89,15 +89,20 @@ structured tables.
   longer IEEE MA-M/MA-S blocks are not distinguished.
 - Unit tests cover only pure logic (config, timestamp/marker parsing). The
   network and DB paths require a live router and CrateDB and are not tested.
-- **Grafana queries CrateDB over the PostgreSQL wire protocol (port 5432),
-  which is far less capable than the HTTP endpoint (4200) the watcher uses.**
-  Grafana's Postgres datasource sends queries via the pg *extended* query
-  protocol, and CrateDB silently returns an **empty frame (HTTP 200, zero
-  rows)** — no error — for SQL that runs fine in the Crate Admin UI: window
-  functions (`LAG`/`OVER`), complex multi-CTE / multi-join queries, and even
-  `TIMESTAMP`-equality joins all fail this way. Keep Grafana panel queries
-  **flat** (`SELECT … WHERE … ORDER BY`) and push any joins/aggregation into a
-  CrateDB **view** created from the Crate UI; filter on epoch-ms (`fetched_at::BIGINT`
-  vs Grafana's `${__from}`/`${__to}`) rather than on timestamp literals (which
-  the pg session timezone can shift). See `sql/grafana_radio_rates.sql` for the
-  worked example (`velop.v_radio_rates` + its flat panel queries).
+- **Grafana's PostgreSQL datasource silently drops result columns whose pg
+  type it can't convert — most commonly `NUMERIC` (OID 1700) — returning an
+  empty frame (HTTP 200, zero rows, no error) for SQL that runs fine
+  everywhere else.** The fault is in Grafana's frame converter, *not* CrateDB's
+  pg-wire path: the same query returns its rows correctly over the HTTP endpoint
+  (4200), over `psql` (simple protocol), and over `asyncpg` (extended
+  Parse/Bind/Execute). The usual trigger is the **two-argument
+  `ROUND(value, scale)`**, which CrateDB types as `NUMERIC`. **Fix: cast every
+  computed numeric column to `DOUBLE PRECISION`** (`ROUND(…, 4)::DOUBLE`,
+  float8/OID 701) or `REAL` before it leaves the query. (Query *shape* —
+  window functions, multi-CTE/multi-join, `TIMESTAMP`-equality joins — is *not*
+  the problem; all of those work over pg-wire. Keeping panel queries flat and
+  pushing logic into a view is still good practice, but only the column-type
+  cast is load-bearing.) Filter on epoch-ms (`fetched_at::BIGINT` vs Grafana's
+  `${__from}`/`${__to}`) rather than timestamp literals (which the pg session
+  timezone can shift). See `sql/grafana_radio_rates.sql` for the worked example
+  (`velop.v_radio_rates` + its flat panel queries).
