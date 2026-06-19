@@ -7,6 +7,7 @@ seen, rather than relying on the connection closing.
 
 from __future__ import annotations
 
+import base64
 import time
 from datetime import datetime, timezone
 from typing import Iterable
@@ -18,10 +19,24 @@ from requests.auth import HTTPBasicAuth
 
 from .config import Config
 
+# JNAP action that returns the full device list (incl. untruncated friendlyName).
+JNAP_GET_DEVICES = "http://linksys.com/jnap/devicelist/GetDevices3"
+
 
 def router_host(url: str) -> str:
     """The bare hostname/IP of the router, for tagging stored rows."""
     return urlparse(url).hostname or ""
+
+
+def jnap_url(cfg: Config) -> str:
+    """The JNAP endpoint: ``cfg.jnap_url`` if set, else derived from the CGI URL.
+
+    The Velop serves JNAP at ``/JNAP/`` on the same host/port as ``sysinfo.cgi``.
+    """
+    if cfg.jnap_url:
+        return cfg.jnap_url
+    parts = urlparse(cfg.router_url)
+    return f"{parts.scheme}://{parts.netloc}/JNAP/"
 
 
 def parse_generated_at(text: str) -> datetime | None:
@@ -89,3 +104,36 @@ def fetch_sysinfo(cfg: Config, session: requests.Session | None = None) -> str:
         return read_until_marker(chunks, cfg.completion_marker, deadline)
     finally:
         resp.close()
+
+
+def fetch_jnap_devices(cfg: Config, session: requests.Session | None = None) -> dict:
+    """POST the JNAP ``GetDevices3`` action and return the decoded JSON payload.
+
+    Uses the same Basic credentials as the CGI fetch, passed in the
+    ``X-JNAP-Authorization`` header the Velop expects (not a normal ``auth=``).
+    Unlike ``sysinfo.cgi`` this responds quickly, so no streaming is needed.
+    Raises ``requests`` errors on transport failure and ``ValueError`` if JNAP
+    reports a non-OK result, so the caller can treat name enrichment as
+    best-effort.
+    """
+    if not cfg.verify_tls:
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+    sess = session or requests.Session()
+    token = base64.b64encode(f"{cfg.username}:{cfg.password}".encode()).decode()
+    resp = sess.post(
+        jnap_url(cfg),
+        headers={
+            "Content-Type": "application/json",
+            "X-JNAP-Action": JNAP_GET_DEVICES,
+            "X-JNAP-Authorization": f"Basic {token}",
+        },
+        data="{}",
+        verify=cfg.verify_tls,
+        timeout=(cfg.connect_timeout, cfg.read_timeout),
+    )
+    resp.raise_for_status()
+    payload = resp.json()
+    if payload.get("result") != "OK":
+        raise ValueError(f"JNAP {JNAP_GET_DEVICES} returned result={payload.get('result')!r}")
+    return payload

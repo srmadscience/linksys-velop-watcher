@@ -155,6 +155,60 @@ def parse_devices(text: str) -> list[dict]:
 
 
 # --------------------------------------------------------------------------
+# JNAP GetDevices3 -> friendly_name enrichment for velop.device
+# --------------------------------------------------------------------------
+
+
+def friendly_name_index(jnap_payload: dict) -> dict[str, str]:
+    """Index untruncated ``friendlyName`` by lowercased deviceID and by MAC.
+
+    Built from a JNAP ``GetDevices3`` response (see ``fetch.fetch_jnap_devices``)
+    so device records parsed from the CGI dump -- whose ``Name`` column the
+    router truncates to ~16 chars and often leaves blank -- can be joined to the
+    full name. UUID is the primary key (the CGI ``UUID`` matches JNAP
+    ``deviceID`` case-insensitively); MAC keys are a fallback. Defensive: a
+    payload without the expected shape just yields an empty index.
+    """
+    index: dict[str, str] = {}
+    devices = (jnap_payload or {}).get("output", {}).get("devices", [])
+    for dev in devices:
+        if not isinstance(dev, dict):
+            continue
+        name = _clean(dev.get("friendlyName") or "")
+        if not name:
+            continue
+        device_id = dev.get("deviceID")
+        if device_id:
+            index.setdefault(device_id.lower(), name)
+        for iface in dev.get("knownInterfaces", []) or []:
+            mac = iface.get("macAddress") if isinstance(iface, dict) else None
+            if mac:
+                index.setdefault(mac.upper(), name)
+    return index
+
+
+def enrich_friendly_names(devices: list[dict], index: dict[str, str]) -> list[dict]:
+    """Set ``friendly_name`` on each device record from ``index``, in place.
+
+    Matches on UUID first, then any of the device's MACs (primary + extras).
+    The field is set to ``None`` when the device is absent from the JNAP data,
+    so the column is always present. Returns ``devices`` for convenience.
+    """
+    for record in devices:
+        name = None
+        uuid = record.get("uuid")
+        if uuid:
+            name = index.get(uuid.lower())
+        if name is None:
+            for mac in [record.get("mac"), *(record.get("extra_macs") or [])]:
+                if mac and mac.upper() in index:
+                    name = index[mac.upper()]
+                    break
+        record["friendly_name"] = name
+    return devices
+
+
+# --------------------------------------------------------------------------
 # wlan_report -> velop.wlan_client
 # --------------------------------------------------------------------------
 

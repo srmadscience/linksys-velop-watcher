@@ -60,6 +60,64 @@ def test_parse_devices_empty_optional_fields_are_none(dump):
 
 
 # --------------------------------------------------------------------------
+# JNAP GetDevices3 -> friendly_name enrichment
+# --------------------------------------------------------------------------
+
+_JNAP = {
+    "result": "OK",
+    "output": {
+        "devices": [
+            {
+                "deviceID": "595567DF-B624-361D-D10F-E89F804C57DF",  # mixed case
+                "friendlyName": "LINKSYS-Return",
+                "knownInterfaces": [{"macAddress": "E8:9F:80:4C:57:DF"}],
+            },
+            {
+                "deviceID": "aaaaaaaa-0000-0000-0000-000000000000",
+                "friendlyName": "endowment",
+                "knownInterfaces": [{"macAddress": "30:9C:23:27:12:6F"}],
+            },
+            {"deviceID": "no-name", "friendlyName": "", "knownInterfaces": []},
+        ]
+    },
+}
+
+
+def test_friendly_name_index_keys_uuid_and_mac():
+    idx = parse.friendly_name_index(_JNAP)
+    assert idx["595567df-b624-361d-d10f-e89f804c57df"] == "LINKSYS-Return"
+    assert idx["E8:9F:80:4C:57:DF"] == "LINKSYS-Return"
+    assert idx["30:9C:23:27:12:6F"] == "endowment"
+    assert "no-name" not in idx  # blank friendlyName skipped
+
+
+def test_friendly_name_index_tolerates_junk():
+    assert parse.friendly_name_index({}) == {}
+    assert parse.friendly_name_index({"output": {"devices": ["x", None]}}) == {}
+
+
+def test_enrich_friendly_names_matches_uuid_then_mac():
+    idx = parse.friendly_name_index(_JNAP)
+    devices = [
+        {"uuid": "595567DF-B624-361D-D10F-E89F804C57DF", "mac": "e8:9f:80:4c:57:df"},
+        {"uuid": "UNKNOWN-UUID", "mac": "30:9c:23:27:12:6f"},  # falls back to MAC
+        {"uuid": "MISSING", "mac": "ff:ff:ff:ff:ff:ff", "extra_macs": []},
+    ]
+    parse.enrich_friendly_names(devices, idx)
+    assert devices[0]["friendly_name"] == "LINKSYS-Return"  # by UUID
+    assert devices[1]["friendly_name"] == "endowment"  # by MAC (case-insensitive)
+    assert devices[2]["friendly_name"] is None  # absent -> column still present
+
+
+def test_enrich_friendly_names_uses_extra_macs():
+    idx = parse.friendly_name_index(_JNAP)
+    devices = [{"uuid": "X", "mac": "00:00:00:00:00:00",
+                "extra_macs": ["30:9c:23:27:12:6f"]}]
+    parse.enrich_friendly_names(devices, idx)
+    assert devices[0]["friendly_name"] == "endowment"
+
+
+# --------------------------------------------------------------------------
 # wlan_report -> wlan_clients
 # --------------------------------------------------------------------------
 

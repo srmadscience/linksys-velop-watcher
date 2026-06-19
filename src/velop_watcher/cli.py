@@ -5,9 +5,13 @@ from __future__ import annotations
 import sys
 from datetime import datetime, timezone
 
+import requests
+
 from .config import Config
-from .fetch import fetch_sysinfo, parse_generated_at, router_host
+from .fetch import fetch_jnap_devices, fetch_sysinfo, parse_generated_at, router_host
 from .parse import (
+    enrich_friendly_names,
+    friendly_name_index,
     parse_backhaul,
     parse_devices,
     parse_lldp,
@@ -55,6 +59,20 @@ def main(argv: list[str] | None = None) -> int:
         "system": parse_system(text),
         "lldp": parse_lldp(text),
     }
+
+    # Best-effort: enrich devices with their untruncated names from the JNAP
+    # API. A failure here (network/auth) must not lose the snapshot.
+    try:
+        jnap = fetch_jnap_devices(cfg)
+        enrich_friendly_names(parsed["devices"], friendly_name_index(jnap))
+        named = sum(1 for d in parsed["devices"] if d.get("friendly_name"))
+        print(f"Enriched {named}/{len(parsed['devices'])} device names from JNAP",
+              file=sys.stderr)
+    except (requests.RequestException, ValueError) as exc:
+        for d in parsed["devices"]:
+            d.setdefault("friendly_name", None)
+        print(f"note: JNAP device-name fetch failed ({exc}); friendly_name stays null",
+              file=sys.stderr)
 
     manuf = load_manuf(cfg.oui_manuf_path)
     if manuf is None:
