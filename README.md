@@ -1,9 +1,30 @@
 # linksys-velop-watcher
 
-Fetches the `sysinfo.cgi` diagnostic page from a Linksys Velop mesh router and
-archives each snapshot as raw text in [CrateDB](https://crate.io/) (which speaks
-the PostgreSQL wire protocol). The goal is to understand the router's behaviour
-and track how its state changes over time.
+A watcher that periodically downloads the `sysinfo.cgi` diagnostic dump from a
+Linksys Velop mesh router and archives each snapshot in [CrateDB](https://crate.io/),
+to study the router and track how its state changes over time.
+
+Each run stores the full page as raw text in `velop.sysinfo` (the source of
+truth) and also parses it into structured, snapshot-linked tables (devices, wlan
+clients, backhaul, nodes, ping, radio stats/config, nic counters, system, lldp).
+Every MAC address is annotated with its vendor via an **offline** OUI lookup —
+MAC addresses never leave the network.
+
+## How it works
+
+```
+cli.main() → fetch_sysinfo(cfg) → parse.* → enrich(...) → store_*  (CrateDB)
+```
+
+- **fetch** — the CGI streams its output slowly, so the fetcher reads the
+  response as a stream and stops only when the `End of Sysinfo Output`
+  completion marker appears, never on connection close alone.
+- **parse** — pure, defensive parsers turn the raw text into `list[dict]`
+  records. No network or DB; unit-tested against `sampleoutput.txt`.
+- **enrich** — each MAC's 24-bit OUI is resolved against a local Wireshark
+  `manuf` file, with results (including misses) cached in `velop.oui`.
+- **store** — one `velop.sysinfo` row per snapshot plus the structured tables.
+  CrateDB has no autoincrement, so each row gets a Python-generated UUID key.
 
 ## Setup
 
@@ -11,22 +32,50 @@ and track how its state changes over time.
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
-cp .env.example .env   # then edit .env
+cp .env.example .env          # then edit .env (see below)
 ```
+
+### Configuration
+
+All runtime settings come from environment variables (see `.env.example`).
+`.env` is gitignored — keep secrets there, not in source.
+
+| Variable          | Purpose                                  | Default                          |
+| ----------------- | ---------------------------------------- | -------------------------------- |
+| `VELOP_URL`       | Router sysinfo endpoint                  | `https://10.13.1.1/sysinfo.cgi`  |
+| `VELOP_USER`      | Router HTTP Basic user                   | `admin`                          |
+| `VELOP_PASSWORD`  | Router password (**required**)           | —                                |
+| `VELOP_VERIFY_TLS`| Verify the router's TLS cert             | `false` (self-signed cert)       |
+| `CRATE_URL`       | CrateDB **HTTP** endpoint (port 4200)    | `http://localhost:4200`          |
+| `CRATE_USER`      | CrateDB user                             | `crate`                          |
+| `CRATE_PASSWORD`  | CrateDB password                         | —                                |
+| `OUI_MANUF_PATH`  | Local Wireshark `manuf` file path        | `manuf`                          |
+| `OUI_MANUF_URL`   | Where `velop-oui-update` downloads it    | Wireshark automated data URL     |
+
+> CrateDB is reached over its **HTTP API (port 4200)** using the official
+> `crate` client — *not* the PostgreSQL wire protocol.
 
 ## Running
 
-Configuration comes from environment variables (see `.env.example`). The router
-password must be supplied via `VELOP_PASSWORD` — it is never stored in the repo.
-
 ```bash
 set -a; source .env; set +a   # load .env into the environment
+velop-oui-update              # one-time: fetch the Wireshark manuf vendor file
 velop-watcher                 # fetch one snapshot and store it
 ```
 
-Each run downloads the full (slowly rendered) page, waiting until the
-`End of Sysinfo Output` marker appears, then inserts one row into the
-`velop.sysinfo` table.
+The schema is created automatically on first run, so there is nothing to set up
+by hand in CrateDB. A missing `manuf` file is not fatal — the vendor columns
+just stay NULL until you run `velop-oui-update`.
+
+### Convenience wrapper
+
+`run-watcher.sh` exports all non-secret config and takes the **router password
+as its first argument**; the CrateDB password is read from the gitignored
+`.env`:
+
+```bash
+./run-watcher.sh 'your-router-password'
+```
 
 ## Tests
 
@@ -35,5 +84,6 @@ pytest                       # all tests
 pytest tests/test_fetch.py   # one file
 ```
 
-The network and database paths are not exercised by the unit tests; only pure
-logic (config parsing, timestamp parsing, marker detection) is covered.
+The unit tests cover only pure logic (config, timestamp/marker parsing, and the
+parsers against `sampleoutput.txt`). The network and database paths require a
+live router and CrateDB and are not exercised by the tests.
