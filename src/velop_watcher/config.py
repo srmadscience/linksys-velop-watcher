@@ -31,6 +31,9 @@ class Config:
     overall_timeout: float = 600.0
     # Fetch is only considered complete once this substring is seen.
     completion_marker: str = "End of Sysinfo Output"
+    # JNAP device-list endpoint (POST/JSON API) used to enrich device records
+    # with untruncated friendly names. Empty means "derive from router_url".
+    jnap_url: str = ""
 
     # Storage. We talk to CrateDB over its HTTP endpoint (port 4200) using the
     # official crate client, not the PostgreSQL wire protocol.
@@ -56,6 +59,7 @@ class Config:
             read_timeout=float(env.get("VELOP_READ_TIMEOUT", d.read_timeout)),
             overall_timeout=float(env.get("VELOP_OVERALL_TIMEOUT", d.overall_timeout)),
             completion_marker=env.get("VELOP_MARKER", d.completion_marker),
+            jnap_url=env.get("VELOP_JNAP_URL", d.jnap_url),
             crate_url=env.get("CRATE_URL", d.crate_url),
             crate_user=env.get("CRATE_USER", d.crate_user),
             crate_password=env.get("CRATE_PASSWORD", d.crate_password),

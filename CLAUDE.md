@@ -37,11 +37,17 @@ editable install or with `src` on `PYTHONPATH`):
   so `fetch_sysinfo` reads the response as a stream and `read_until_marker`
   stops only when the `End of Sysinfo Output` completion marker appears — never
   on connection close alone. `parse_generated_at` extracts the router's own
-  `page generated on …` timestamp (router reports UTC).
+  `page generated on …` timestamp (router reports UTC). `fetch_jnap_devices`
+  POSTs the **JNAP** `GetDevices3` action (`/JNAP/`, JSON API, auth via the
+  `X-JNAP-Authorization` Basic header) to get untruncated device names; the
+  endpoint is derived from `router_url` unless `VELOP_JNAP_URL` overrides it.
 - `parse.py` — pure, defensive parsers that turn a snapshot's `raw_text` into
   structured `list[dict]` records (devices, wlan clients, backhaul, nodes, ping,
   radio stats/config, nic counters, system, lldp). No network or DB; unit-tested
-  against `sampleoutput.txt`.
+  against `sampleoutput.txt`. `friendly_name_index` / `enrich_friendly_names`
+  join a JNAP `GetDevices3` payload onto the device records (by UUID, then MAC)
+  to fill `friendly_name` — the CGI `Name` column is capped at ~16 chars and
+  often blank.
 - `oui.py` — MAC→vendor resolution. `ManufDB` parses a local Wireshark `manuf`
   file; `VendorResolver` resolves each MAC's 24-bit OUI, caching results (incl.
   NULL misses) in `velop.oui`. `enrich()` adds a `*_vendor` field beside every
@@ -50,9 +56,12 @@ editable install or with `src` on `PYTHONPATH`):
 - `store.py` — CrateDB persistence. One `velop.sysinfo` row per snapshot plus the
   structured tables and `velop.oui`; CrateDB has no autoincrement so each row
   gets a Python-generated UUID primary key.
-- `cli.py` — wires fetch → parse → enrich → store for a single run.
+- `cli.py` — wires fetch → parse → enrich → store for a single run. The JNAP
+  name fetch is **best-effort**: a network/auth failure logs a note and leaves
+  `friendly_name` NULL rather than losing the snapshot.
 
-Data flow: `cli.main()` → `fetch_sysinfo(cfg)` → `parse.*` → `enrich(...)` →
+Data flow: `cli.main()` → `fetch_sysinfo(cfg)` → `parse.*` →
+`enrich_friendly_names(...)` (JNAP) → `enrich(...)` (OUI) →
 `store_sysinfo(...)` + `store_tier1(...)` into `velop.sysinfo` and the
 structured tables.
 
@@ -66,7 +75,9 @@ structured tables.
   client — *not* the PostgreSQL wire protocol. Connection comes from
   `CRATE_URL` / `CRATE_USER` / `CRATE_PASSWORD`. The client uses the **qmark
   paramstyle** (`?`, not `%s`). CrateDB does not support real transactions and
-  lacks autoincrement — keep DDL/SQL within that subset.
+  lacks autoincrement — keep DDL/SQL within that subset. It also has **no
+  `ADD COLUMN IF NOT EXISTS`**; `store.MIGRATIONS` runs a plain `ALTER TABLE …
+  ADD COLUMN` and swallows the "already has a column" error to stay idempotent.
 - The completion marker is matched as a substring; in real output it appears as
   `**************** End of Sysinfo Output ******************`.
 - `sampleoutput.txt` is a full real dump (~4800 lines) — the reference for the

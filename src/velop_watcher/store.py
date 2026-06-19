@@ -60,6 +60,9 @@ TIER1_DDL = (
         conn TEXT,
         status TEXT,
         name TEXT,
+        -- Untruncated name from the JNAP GetDevices3 API (see fetch/parse);
+        -- the CGI 'name' is capped at ~16 chars and often blank.
+        friendly_name TEXT,
         fw_ver TEXT,
         role TEXT,
         extra_macs ARRAY(TEXT),
@@ -218,8 +221,8 @@ TIER1_DDL = (
 # Column order per table for executemany inserts. id/snapshot_id/fetched_at are
 # prepended for every row; the rest mirror the parse.py record keys.
 _DEVICE_COLS = (
-    "uuid", "mac", "mac_vendor", "ip", "conn", "status", "name", "fw_ver", "role",
-    "extra_macs", "extra_macs_vendor",
+    "uuid", "mac", "mac_vendor", "ip", "conn", "status", "name", "friendly_name",
+    "fw_ver", "role", "extra_macs", "extra_macs_vendor",
 )
 _WLAN_COLS = (
     "client_mac", "client_mac_vendor", "stat", "net", "node", "mcs", "rssi", "last_seen",
@@ -260,12 +263,27 @@ def connect(cfg: Config):
     )
 
 
+# Idempotent migrations for tables that may already exist from earlier runs --
+# CREATE TABLE IF NOT EXISTS never adds columns to an existing table. CrateDB
+# has no ADD COLUMN IF NOT EXISTS, so we run the plain ALTER and ignore the
+# "already has a column" error on tables that already carry the column.
+MIGRATIONS = (
+    "ALTER TABLE velop.device ADD COLUMN friendly_name TEXT",
+)
+
+
 def ensure_schema(conn) -> None:
     cur = conn.cursor()
     try:
         cur.execute(DDL)
         for ddl in TIER1_DDL:
             cur.execute(ddl)
+        for migration in MIGRATIONS:
+            try:
+                cur.execute(migration)
+            except Exception as exc:  # crate ProgrammingError on a re-run
+                if "already" not in str(exc).lower():
+                    raise
     finally:
         cur.close()
 

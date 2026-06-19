@@ -21,8 +21,13 @@ cli.main() → fetch_sysinfo(cfg) → parse.* → enrich(...) → store_*  (Crat
   completion marker appears, never on connection close alone.
 - **parse** — pure, defensive parsers turn the raw text into `list[dict]`
   records. No network or DB; unit-tested against `sampleoutput.txt`.
-- **enrich** — each MAC's 24-bit OUI is resolved against a local Wireshark
-  `manuf` file, with results (including misses) cached in `velop.oui`.
+- **name enrich** — the CGI `Name` column is truncated to ~16 chars and often
+  blank, so each device is also looked up via the Velop's **JNAP**
+  `GetDevices3` API (`/JNAP/`) and its untruncated `friendlyName` stored in
+  `velop.device.friendly_name`. Best-effort: a JNAP failure just leaves the
+  column NULL.
+- **vendor enrich** — each MAC's 24-bit OUI is resolved against a local
+  Wireshark `manuf` file, with results (including misses) cached in `velop.oui`.
 - **store** — one `velop.sysinfo` row per snapshot plus the structured tables.
   CrateDB has no autoincrement, so each row gets a Python-generated UUID key.
 
@@ -46,6 +51,7 @@ All runtime settings come from environment variables (see `.env.example`).
 | `VELOP_USER`      | Router HTTP Basic user                   | `admin`                          |
 | `VELOP_PASSWORD`  | Router password (**required**)           | —                                |
 | `VELOP_VERIFY_TLS`| Verify the router's TLS cert             | `false` (self-signed cert)       |
+| `VELOP_JNAP_URL`  | JNAP device-name endpoint (optional)     | derived from `VELOP_URL` (`/JNAP/`) |
 | `CRATE_URL`       | CrateDB **HTTP** endpoint (port 4200)    | `http://localhost:4200`          |
 | `CRATE_USER`      | CrateDB user                             | `crate`                          |
 | `CRATE_PASSWORD`  | CrateDB password                         | —                                |
