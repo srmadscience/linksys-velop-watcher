@@ -89,3 +89,15 @@ structured tables.
   longer IEEE MA-M/MA-S blocks are not distinguished.
 - Unit tests cover only pure logic (config, timestamp/marker parsing). The
   network and DB paths require a live router and CrateDB and are not tested.
+- **Grafana queries CrateDB over the PostgreSQL wire protocol (port 5432),
+  which is far less capable than the HTTP endpoint (4200) the watcher uses.**
+  Grafana's Postgres datasource sends queries via the pg *extended* query
+  protocol, and CrateDB silently returns an **empty frame (HTTP 200, zero
+  rows)** — no error — for SQL that runs fine in the Crate Admin UI: window
+  functions (`LAG`/`OVER`), complex multi-CTE / multi-join queries, and even
+  `TIMESTAMP`-equality joins all fail this way. Keep Grafana panel queries
+  **flat** (`SELECT … WHERE … ORDER BY`) and push any joins/aggregation into a
+  CrateDB **view** created from the Crate UI; filter on epoch-ms (`fetched_at::BIGINT`
+  vs Grafana's `${__from}`/`${__to}`) rather than on timestamp literals (which
+  the pg session timezone can shift). See `sql/grafana_radio_rates.sql` for the
+  worked example (`velop.v_radio_rates` + its flat panel queries).
