@@ -38,6 +38,11 @@ class Config:
     crate_user: str = "crate"
     crate_password: str = ""
 
+    # OUI/vendor resolution. The manuf file is fetched once by velop-oui-update
+    # and read locally; MAC addresses are never sent anywhere.
+    oui_manuf_path: str = "manuf"
+    oui_manuf_url: str = "https://www.wireshark.org/download/automated/data/manuf"
+
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> "Config":
         env = os.environ if env is None else env
@@ -54,4 +59,6 @@ class Config:
             crate_url=env.get("CRATE_URL", d.crate_url),
             crate_user=env.get("CRATE_USER", d.crate_user),
             crate_password=env.get("CRATE_PASSWORD", d.crate_password),
+            oui_manuf_path=env.get("OUI_MANUF_PATH", d.oui_manuf_path),
+            oui_manuf_url=env.get("OUI_MANUF_URL", d.oui_manuf_url),
         )

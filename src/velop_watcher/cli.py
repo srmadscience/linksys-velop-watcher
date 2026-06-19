@@ -7,7 +7,20 @@ from datetime import datetime, timezone
 
 from .config import Config
 from .fetch import fetch_sysinfo, parse_generated_at, router_host
-from .store import connect, ensure_schema, store_sysinfo
+from .parse import (
+    parse_backhaul,
+    parse_devices,
+    parse_lldp,
+    parse_nic_counters,
+    parse_nodes,
+    parse_ping,
+    parse_radio_config,
+    parse_radio_stats,
+    parse_system,
+    parse_wlan_clients,
+)
+from .oui import VendorResolver, enrich, load_manuf
+from .store import connect, ensure_schema, store_sysinfo, store_tier1
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -30,14 +43,39 @@ def main(argv: list[str] | None = None) -> int:
         file=sys.stderr,
     )
 
+    parsed = {
+        "devices": parse_devices(text),
+        "wlan_clients": parse_wlan_clients(text),
+        "backhaul": parse_backhaul(text),
+        "ping": parse_ping(text),
+        "nodes": parse_nodes(text),
+        "radio_stats": parse_radio_stats(text),
+        "radio_config": parse_radio_config(text),
+        "nic_counters": parse_nic_counters(text),
+        "system": parse_system(text),
+        "lldp": parse_lldp(text),
+    }
+
+    manuf = load_manuf(cfg.oui_manuf_path)
+    if manuf is None:
+        print(
+            f"note: OUI manuf file not found at {cfg.oui_manuf_path}; vendor columns "
+            "will be null. Run velop-oui-update to fetch it.",
+            file=sys.stderr,
+        )
+
     conn = connect(cfg)
     try:
         ensure_schema(conn)
+        # Annotate every MAC with its vendor, caching lookups in velop.oui.
+        enrich(parsed, VendorResolver(conn, manuf))
         row_id = store_sysinfo(conn, text, fetched_at, generated_at, host)
+        counts = store_tier1(conn, parsed, row_id, fetched_at)
     finally:
         conn.close()
 
-    print(f"Stored snapshot {row_id}", file=sys.stderr)
+    summary = ", ".join(f"{n} {table}" for table, n in counts.items())
+    print(f"Stored snapshot {row_id} ({summary})", file=sys.stderr)
     return 0
 
 

@@ -216,3 +216,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Downloaded Wireshark OUI/vendor file (fetched by velop-oui-update)
+manuf
