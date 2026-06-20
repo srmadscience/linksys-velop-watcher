@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+import uuid
 from datetime import datetime, timezone
 
 import requests
@@ -33,7 +34,10 @@ from .parse import (
     tag_radio_source,
 )
 from .oui import VendorResolver, enrich, load_manuf
+from .kafka_sink import KafkaSink, assign_ids
 from .store import connect, ensure_schema, store_node_sysinfo, store_sysinfo, store_tier1
+
+_SINK_MODES = ("crate", "kafka", "both")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -44,6 +48,11 @@ def main(argv: list[str] | None = None) -> int:
             "error: router password not set. Export VELOP_PASSWORD before running.",
             file=sys.stderr,
         )
+        return 2
+
+    if cfg.sink not in _SINK_MODES:
+        print(f"error: VELOP_SINK must be one of {_SINK_MODES}, got {cfg.sink!r}.",
+              file=sys.stderr)
         return 2
 
     print(f"Fetching {cfg.router_url} (this can take a while) ...", file=sys.stderr)
@@ -125,19 +134,49 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
 
-    conn = connect(cfg)
-    try:
-        ensure_schema(conn)
-        # Annotate every MAC with its vendor, caching lookups in velop.oui.
-        enrich(parsed, VendorResolver(conn, manuf))
-        row_id = store_sysinfo(conn, text, fetched_at, generated_at, host)
-        counts = store_tier1(conn, parsed, row_id, fetched_at)
-        counts["node_sysinfo"] = store_node_sysinfo(conn, satellite_dumps, row_id, fetched_at)
-    finally:
-        conn.close()
+    # One snapshot id ties this capture's rows together across both sinks; ids on
+    # the individual records are stamped here so the CrateDB write and the Kafka
+    # producer reference the same primary keys (no duplicate rows downstream).
+    snapshot_id = str(uuid.uuid4())
+    assign_ids(parsed)
+    use_crate = cfg.sink in ("crate", "both")
+    use_kafka = cfg.sink in ("kafka", "both")
 
-    summary = ", ".join(f"{n} {table}" for table, n in counts.items())
-    print(f"Stored snapshot {row_id} ({summary})", file=sys.stderr)
+    conn = connect(cfg) if use_crate else None
+    try:
+        if conn is not None:
+            ensure_schema(conn)
+        # Annotate every MAC with its vendor. With a CrateDB conn, lookups are
+        # cached in velop.oui; kafka-only resolves from the manuf file directly.
+        enrich(parsed, VendorResolver(conn, manuf))
+
+        counts: dict[str, int] = {}
+        if use_crate:
+            store_sysinfo(conn, text, fetched_at, generated_at, host, row_id=snapshot_id)
+            counts = store_tier1(conn, parsed, snapshot_id, fetched_at)
+            counts["node_sysinfo"] = store_node_sysinfo(
+                conn, satellite_dumps, snapshot_id, fetched_at)
+            summary = ", ".join(f"{n} {table}" for table, n in counts.items())
+            print(f"Stored snapshot {snapshot_id} to CrateDB ({summary})", file=sys.stderr)
+
+        if use_kafka:
+            try:
+                sink = KafkaSink(cfg)
+            except ImportError:
+                print("error: kafka sink selected but confluent-kafka is not "
+                      "installed. pip install -r requirements-kafka.txt", file=sys.stderr)
+                return 2
+            produced = sink.produce(parsed, snapshot_id, fetched_at)
+            undelivered = sink.flush()
+            psummary = ", ".join(f"{n} {t}" for t, n in produced.items()) or "0 records"
+            print(f"Produced snapshot {snapshot_id} to Kafka {cfg.kafka_bootstrap} "
+                  f"({psummary})", file=sys.stderr)
+            if undelivered:
+                print(f"WARN {undelivered} Kafka message(s) still undelivered after flush",
+                      file=sys.stderr)
+    finally:
+        if conn is not None:
+            conn.close()
     return 0
 
 

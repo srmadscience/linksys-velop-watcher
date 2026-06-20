@@ -1,0 +1,69 @@
+# Kafka Connect JDBC sinks (Kafka → CrateDB)
+
+These mirror the hcpy pattern: the watcher produces each structured table to its
+own Kafka topic as Confluent-Avro (see `src/velop_watcher/kafka_sink.py`), and
+one JDBC sink connector per topic lands the records in CrateDB over pg-wire.
+
+| Topic | Sink file | CrateDB table |
+|---|---|---|
+| `velop.device` | `velop-sink-device.json` | `velop.device` |
+| `velop.wlan_client` | `velop-sink-wlan-client.json` | `velop.wlan_client` |
+| `velop.backhaul` | `velop-sink-backhaul.json` | `velop.backhaul` |
+| `velop.ping` | `velop-sink-ping.json` | `velop.ping` |
+| `velop.node` | `velop-sink-node.json` | `velop.node` |
+| `velop.radio_stats` | `velop-sink-radio-stats.json` | `velop.radio_stats` |
+| `velop.radio_config` | `velop-sink-radio-config.json` | `velop.radio_config` |
+| `velop.nic_counter` | `velop-sink-nic-counter.json` | `velop.nic_counter` |
+| `velop.system` | `velop-sink-system.json` | `velop.system` |
+| `velop.ip_neighbor` | `velop-sink-ip-neighbor.json` | `velop.ip_neighbor` |
+| `velop.lldp_neighbor` | `velop-sink-lldp-neighbor.json` | `velop.lldp_neighbor` |
+
+(The `sysinfo`/`node_sysinfo` raw_text dumps and the `oui` cache are not produced
+to Kafka — see `kafka_sink.py`.)
+
+## Producing
+
+Run the watcher with the Kafka sink enabled:
+
+```bash
+VELOP_SINK=kafka  velop-watcher      # Kafka only
+VELOP_SINK=both   velop-watcher      # CrateDB direct AND Kafka (shared row ids)
+# defaults: KAFKA_BOOTSTRAP=badger:9092  SCHEMA_REGISTRY_URL=http://badger:8081
+```
+
+The Avro value schemas register themselves under each `velop.<table>-value`
+subject on the first produce, so run the watcher once before starting the sinks.
+
+## Deploying the sinks
+
+1. **Tables must exist first** — the sinks run `auto.create:false`. Create them
+   by running `velop-watcher` once in `crate`/`both` mode (its `ensure_schema`
+   creates every `velop.*` table), or apply the DDL by hand. The tables are
+   **plain (not partitioned)**: the Confluent JDBC sink checks table existence
+   via JDBC metadata, and an empty *partitioned* CrateDB table is invisible to
+   that check (it fails with "table is missing").
+2. **Register each connector** against the Connect REST API:
+   ```bash
+   for f in connect/velop-sink-*.json; do
+     curl -s -X POST -H 'Content-Type: application/json' \
+       --data @"$f" http://<connect-host>:8083/connectors | jq .name
+   done
+   ```
+3. Check status: `curl http://<connect-host>:8083/connectors/crate-jdbc-sink-velop-device/status`.
+
+## Caveats
+
+- **Credentials**: `connection.user`/`connection.password` are `scott`/`tiger`
+  here to match the existing hcpy sinks against the same CrateDB. If you want to
+  keep secrets out of the repo, swap them for a Connect `ConfigProvider`
+  (e.g. `FileConfigProvider`) and reference an external file.
+- **OBJECT/ARRAY columns** (`node.devinfo`, `radio_stats.stats`,
+  `radio_config.settings`, `lldp_neighbor.capabilities`, `device.extra_macs*`)
+  are produced as **JSON strings**. Confirm the JDBC sink lands a JSON string
+  into the CrateDB `OBJECT`/`ARRAY` column as expected (test on
+  `velop.radio_stats` first, since its `stats` object is read by the Grafana
+  views). If CrateDB rejects the string, those columns may need to be `TEXT` in
+  the sink target, or `cast` via an SMT.
+- **Idempotency**: sinks use `insert.mode=upsert` with `pk.fields=id`. Because
+  the direct-CrateDB write and the Kafka record share the same `id`, `both` mode
+  and Kafka re-delivery upsert the same row rather than duplicating it.

@@ -177,6 +177,11 @@ class VendorResolver:
         return vendor
 
     def _resolve(self, oui: str) -> Optional[str]:
+        # No DB (e.g. kafka-only sink): resolve straight from the manuf file,
+        # without the velop.oui cache. The per-run self._seen dict still avoids
+        # repeat lookups within a snapshot.
+        if self.conn is None:
+            return self.manuf.lookup(oui) if self.manuf else None
         cur = self.conn.cursor()
         try:
             cur.execute(_SELECT_OUI, (oui,))

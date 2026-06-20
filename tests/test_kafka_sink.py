@@ -1,0 +1,108 @@
+"""Tests for the pure (no-Kafka) parts of kafka_sink: specs, schema, records.
+
+The Producer/serializer path needs confluent_kafka + a live broker and is not
+covered here, matching the project's network/DB test boundary.
+"""
+
+import json
+from datetime import datetime, timezone
+
+from velop_watcher import kafka_sink
+from velop_watcher.kafka_sink import TABLE_SPECS, assign_ids, record_value, value_schema
+from velop_watcher.store import (
+    _BACKHAUL_COLS,
+    _DEVICE_COLS,
+    _IP_NEIGHBOR_COLS,
+    _LLDP_COLS,
+    _NIC_COUNTER_COLS,
+    _NODE_COLS,
+    _PING_COLS,
+    _RADIO_CONFIG_COLS,
+    _RADIO_STATS_COLS,
+    _SYSTEM_COLS,
+    _WLAN_COLS,
+)
+
+_STORE_COLS = {
+    "device": _DEVICE_COLS,
+    "wlan_client": _WLAN_COLS,
+    "backhaul": _BACKHAUL_COLS,
+    "ping": _PING_COLS,
+    "node": _NODE_COLS,
+    "radio_stats": _RADIO_STATS_COLS,
+    "radio_config": _RADIO_CONFIG_COLS,
+    "nic_counter": _NIC_COUNTER_COLS,
+    "system": _SYSTEM_COLS,
+    "ip_neighbor": _IP_NEIGHBOR_COLS,
+    "lldp_neighbor": _LLDP_COLS,
+}
+
+
+def test_specs_match_store_columns():
+    """Each topic's columns must mirror the CrateDB table's columns (same order)."""
+    by_table = {spec.table: spec for spec in TABLE_SPECS}
+    assert set(by_table) == set(_STORE_COLS)
+    for table, cols in _STORE_COLS.items():
+        spec_cols = tuple(name for name, _kind in by_table[table].columns)
+        assert spec_cols == tuple(cols), table
+
+
+def test_value_schema_is_valid_avro_with_meta_fields():
+    spec = next(s for s in TABLE_SPECS if s.table == "ip_neighbor")
+    schema = json.loads(value_schema(spec))
+    assert schema["name"] == "ip_neighbor"
+    assert schema["namespace"] == "velop"
+    names = [f["name"] for f in schema["fields"]]
+    # id/snapshot_id/fetched_at prepended, then the table columns.
+    assert names[:3] == ["id", "snapshot_id", "fetched_at"]
+    assert "is_router" in names
+    fetched = next(f for f in schema["fields"] if f["name"] == "fetched_at")
+    assert fetched["type"] == {"type": "long", "logicalType": "timestamp-millis"}
+    is_router = next(f for f in schema["fields"] if f["name"] == "is_router")
+    assert is_router["type"] == ["null", "boolean"]  # nullable union
+
+
+def test_record_value_passthrough_and_meta():
+    spec = next(s for s in TABLE_SPECS if s.table == "ip_neighbor")
+    ts = datetime(2026, 6, 20, 12, 0, tzinfo=timezone.utc)
+    rec = {"ip": "10.13.1.5", "family": "inet", "iface": "br0",
+           "mac": "aa:bb:cc:dd:ee:ff", "mac_vendor": "Acme",
+           "is_router": False, "state": "REACHABLE"}
+    value = record_value(spec, rec, "row-1", "snap-1", ts)
+    assert value["id"] == "row-1"
+    assert value["snapshot_id"] == "snap-1"
+    assert value["fetched_at"] is ts
+    assert value["ip"] == "10.13.1.5"
+    assert value["is_router"] is False
+
+
+def test_record_value_json_encodes_object_and_array_columns():
+    # radio_stats.stats is OBJECT; device.extra_macs is ARRAY -> JSON strings.
+    radio_spec = next(s for s in TABLE_SPECS if s.table == "radio_stats")
+    rec = {"radio": "wifi0", "band": "2.4G", "stats": {"tx_data_bytes": 42}}
+    value = record_value(radio_spec, rec, "r", "s", datetime.now(timezone.utc))
+    assert value["stats"] == '{"tx_data_bytes": 42}'
+
+    dev_spec = next(s for s in TABLE_SPECS if s.table == "device")
+    drec = {"mac": "a", "extra_macs": ["b", "c"], "extra_macs_vendor": [None, "X"]}
+    dval = record_value(dev_spec, drec, "r", "s", datetime.now(timezone.utc))
+    assert dval["extra_macs"] == '["b", "c"]'
+
+
+def test_record_value_missing_fields_are_none():
+    spec = next(s for s in TABLE_SPECS if s.table == "radio_stats")
+    value = record_value(spec, {}, "r", "s", datetime.now(timezone.utc))
+    assert value["stats"] is None          # absent OBJECT -> null, not "null"
+    assert value["source_node_mac"] is None
+
+
+def test_assign_ids_stamps_every_record_once():
+    parsed = {
+        "ip_neighbors": [{"ip": "1"}, {"ip": "2"}],
+        "radio_stats": [{"radio": "wifi0", "id": "pre-existing"}],
+        "devices": [],
+    }
+    assign_ids(parsed)
+    ids = [r["id"] for r in parsed["ip_neighbors"]]
+    assert all(ids) and len(set(ids)) == 2          # unique, populated
+    assert parsed["radio_stats"][0]["id"] == "pre-existing"  # idempotent

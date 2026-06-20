@@ -1,0 +1,7 @@
+# Extra dependency for the Kafka/Avro sink (VELOP_SINK=kafka|both).
+# Kept separate from the core install so the default CrateDB-only path stays
+# lean and importable without it (kafka_sink.py imports confluent_kafka lazily).
+#
+# [schemaregistry] pulls in the Schema Registry HTTP transport; [avro] pulls in
+# fastavro for the AvroSerializer.
+confluent-kafka[schemaregistry,avro]

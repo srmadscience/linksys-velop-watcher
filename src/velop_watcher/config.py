@@ -46,6 +46,17 @@ class Config:
     oui_manuf_path: str = "manuf"
     oui_manuf_url: str = "https://www.wireshark.org/download/automated/data/manuf"
 
+    # Sink selection: where parsed records go. "crate" (default) keeps the direct
+    # CrateDB HTTP write; "kafka" produces Avro to Kafka only; "both" does each
+    # (records share one id, so a Connect JDBC sink upsert never duplicates).
+    sink: str = "crate"
+    # Kafka / Avro (Confluent wire format). The structured tables are produced as
+    # one topic each, "<prefix><table>"; raw_text dumps are never produced.
+    kafka_bootstrap: str = "badger:9092"
+    schema_registry_url: str = "http://badger:8081"
+    kafka_topic_prefix: str = "velop."
+    kafka_client_id: str = "velop-watcher"
+
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> "Config":
         env = os.environ if env is None else env
@@ -65,4 +76,9 @@ class Config:
             crate_password=env.get("CRATE_PASSWORD", d.crate_password),
             oui_manuf_path=env.get("OUI_MANUF_PATH", d.oui_manuf_path),
             oui_manuf_url=env.get("OUI_MANUF_URL", d.oui_manuf_url),
+            sink=env.get("VELOP_SINK", d.sink).strip().lower(),
+            kafka_bootstrap=env.get("KAFKA_BOOTSTRAP", d.kafka_bootstrap),
+            schema_registry_url=env.get("SCHEMA_REGISTRY_URL", d.schema_registry_url),
+            kafka_topic_prefix=env.get("KAFKA_TOPIC_PREFIX", d.kafka_topic_prefix),
+            kafka_client_id=env.get("KAFKA_CLIENT_ID", d.kafka_client_id),
         )
