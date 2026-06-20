@@ -297,6 +297,26 @@ def test_parse_radio_stats_counters_and_nested(dump):
     assert wifi1["stats"]["rx_data_packets_per_ac_best_effort"] == 1229862
 
 
+def test_tag_radio_source_stamps_node_identity(dump):
+    rows = parse.parse_radio_stats(dump)
+    node = {"mac": "C4:41:1E:EC:42:75", "name": "LINKSYS-Hall",
+            "ip": "10.13.1.9", "role": "slave"}
+    tagged = parse.tag_radio_source(rows, node)
+    assert tagged is rows  # tags in place, returns same list
+    for r in rows:
+        assert r["source_node_mac"] == "C4:41:1E:EC:42:75"
+        assert r["source_node_name"] == "LINKSYS-Hall"
+        assert r["source_node_ip"] == "10.13.1.9"
+        assert r["source_role"] == "slave"
+
+
+def test_tag_radio_source_tolerates_missing_node_fields():
+    radios = [{"radio": "wifi0", "band": "2.4G", "stats": {}}]
+    parse.tag_radio_source(radios, {})  # no KeyError
+    assert radios[0]["source_node_mac"] is None
+    assert radios[0]["source_role"] is None
+
+
 # --------------------------------------------------------------------------
 # athN Settings -> radio_config (Tier 6)
 # --------------------------------------------------------------------------
@@ -375,3 +395,53 @@ def test_parse_lldp_neighbors(dump):
         "Wlan": True,
         "Station": False,
     }
+
+
+# --------------------------------------------------------------------------
+# ip neigh -> ip_neighbors
+# --------------------------------------------------------------------------
+
+
+def test_parse_ip_neighbors_counts(dump):
+    rows = parse.parse_ip_neighbors(dump)
+    # The block mixes IPv4 and IPv6 rows; both are captured.
+    assert len(rows) == 105
+    assert sum(1 for r in rows if r["family"] == "inet") == 62
+    assert sum(1 for r in rows if r["family"] == "inet6") == 43
+    assert {r["iface"] for r in rows} == {"br0", "br2", "eth0", "eth1"}
+
+
+def test_parse_ip_neighbors_reachable_row(dump):
+    rows = parse.parse_ip_neighbors(dump)
+    r = next(r for r in rows if r["ip"] == "10.13.1.30")
+    assert r == {
+        "ip": "10.13.1.30",
+        "family": "inet",
+        "iface": "br0",
+        "mac": "1c:1b:0d:76:ef:1f",
+        "is_router": False,
+        "state": "DELAY",
+    }
+
+
+def test_parse_ip_neighbors_failed_row_has_no_mac(dump):
+    rows = parse.parse_ip_neighbors(dump)
+    r = next(r for r in rows if r["ip"] == "10.13.1.193")
+    assert r["mac"] is None
+    assert r["state"] == "FAILED"
+
+
+def test_parse_ip_neighbors_router_flag(dump):
+    rows = parse.parse_ip_neighbors(dump)
+    r = next(r for r in rows if r["ip"] == "fe80::c641:1eff:feec:4275")
+    assert r["is_router"] is True
+    assert r["family"] == "inet6"
+    assert r["mac"] == "c4:41:1e:ec:42:75"
+    # A plain (non-router) neighbour is False, not None.
+    plain = next(r for r in rows if r["ip"] == "192.168.20.101")
+    assert plain["is_router"] is False
+    assert plain["iface"] == "br2"  # IoT/smart-connect VLAN
+
+
+def test_parse_ip_neighbors_missing_section():
+    assert parse.parse_ip_neighbors("no neighbours here") == []

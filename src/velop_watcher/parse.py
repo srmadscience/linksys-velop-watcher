@@ -452,6 +452,66 @@ def parse_ping(text: str) -> list[dict]:
     return []
 
 
+# --------------------------------------------------------------------------
+# ip neigh (ARP/neighbour table) -> velop.ip_neighbor
+# --------------------------------------------------------------------------
+
+# A neighbour row: ``<ip> dev <iface> [lladdr <mac>] [router] [proxy ...] <STATE>``.
+# The ``ip neigh:`` block mixes IPv4 and IPv6 (fe80::) entries; rows without a
+# reachable MAC (e.g. ``... dev br0  FAILED``) omit the ``lladdr`` clause, and a
+# neighbour that is itself a router carries a lowercase ``router`` flag before
+# the uppercase state. State is occasionally absent, so it is optional.
+_NEIGH_RE = re.compile(
+    r"^(?P<ip>[0-9a-fA-F:.]+)\s+dev\s+(?P<iface>\S+)"
+    r"(?:\s+lladdr\s+(?P<mac>[0-9a-fA-F]{2}(?::[0-9a-fA-F]{2})+))?"
+    r"(?P<flags>(?:\s+[a-z_]+)*)"
+    r"(?:\s+(?P<state>[A-Z][A-Z_]+))?\s*$"
+)
+
+
+def parse_ip_neighbors(text: str) -> list[dict]:
+    """Parse the ``ip neigh:`` neighbour/ARP table: one row per IP.
+
+    Each record carries the IP, its address family (``inet``/``inet6``), the
+    bridge/interface it was seen on (``br0`` main LAN, ``br1`` guest, ``br2``
+    Smart Connect / inter-node, ``eth0`` WAN), the resolved MAC (``None`` for an
+    unresolved ``FAILED``
+    entry), whether the neighbour advertised itself as a router, and the cache
+    state (``REACHABLE``/``STALE``/``DELAY``/``FAILED``/...). This is the ARP
+    cache at snapshot time -- a liveness signal and an IP<->MAC map independent
+    of ``show_devices`` -- not a DHCP lease.
+    """
+    lines = text.splitlines()
+    start = next((i + 1 for i, ln in enumerate(lines) if ln.strip() == "ip neigh:"), None)
+    if start is None:
+        return []
+
+    rows: list[dict] = []
+    for line in lines[start:]:
+        if not line.strip():
+            if rows:
+                break
+            continue  # skip the blank line between the header and the first row
+        m = _NEIGH_RE.match(line)
+        if not m:
+            if rows:
+                break
+            continue
+        ip = m.group("ip")
+        flags = (m.group("flags") or "").split()
+        rows.append(
+            {
+                "ip": ip,
+                "family": "inet6" if ":" in ip else "inet",
+                "iface": m.group("iface"),
+                "mac": m.group("mac"),
+                "is_router": "router" in flags,
+                "state": m.group("state"),
+            }
+        )
+    return rows
+
+
 # ==========================================================================
 # Shared helpers for the free-form Tier 5/6/9/10 sections
 # ==========================================================================
@@ -549,6 +609,22 @@ def parse_radio_stats(text: str) -> list[dict]:
             context = _snake(stripped[:-1])
         elif not indented:
             context = None
+    return radios
+
+
+def tag_radio_source(radios: list[dict], node: dict) -> list[dict]:
+    """Stamp each radio record with the mesh node it was captured from, in place.
+
+    ``radios`` are ``parse_radio_stats`` records; ``node`` is a ``parse_nodes``
+    record (``mac``/``name``/``ip``/``role``). Radio names (``wifi0/1/2``) repeat
+    across nodes and bands differ by model, so the source node is what makes a
+    radio's identity unique across the mesh. Returns ``radios`` for convenience.
+    """
+    for radio in radios:
+        radio["source_node_mac"] = node.get("mac")
+        radio["source_node_name"] = node.get("name")
+        radio["source_node_ip"] = node.get("ip")
+        radio["source_role"] = node.get("role")
     return radios
 
 

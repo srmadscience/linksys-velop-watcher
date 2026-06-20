@@ -9,8 +9,11 @@ Linksys Velop mesh router and archives each snapshot in CrateDB, to study the
 router and track its state over time. It stores the full page as raw text in
 `velop.sysinfo` (the source of truth) and also parses it into structured,
 snapshot-linked tables (devices, wlan clients, backhaul, nodes, ping, radio
-stats/config, nic counters, system, lldp), with each MAC annotated with its
-vendor via an offline OUI lookup.
+stats/config, nic counters, system, ip neighbors, lldp), with each MAC
+annotated with its vendor via an offline OUI lookup. It also fetches each
+**satellite node's** sysinfo (radio counters are local to each node), archiving
+those dumps in `velop.node_sysinfo` and tagging their radios by source node so
+WiFi throughput reflects the whole mesh, not just the master.
 
 ## Commands
 
@@ -41,10 +44,18 @@ editable install or with `src` on `PYTHONPATH`):
   POSTs the **JNAP** `GetDevices3` action (`/JNAP/`, JSON API, auth via the
   `X-JNAP-Authorization` Basic header) to get untruncated device names; the
   endpoint is derived from `router_url` unless `VELOP_JNAP_URL` overrides it.
+  `fetch_sysinfo` delegates to `fetch_sysinfo_url(url, cfg)` so satellite nodes
+  reuse the same slow-stream/marker logic; `node_sysinfo_url(cfg, ip)` swaps the
+  host of `router_url` to a node's LAN IP (every node serves the CGI).
 - `parse.py` — pure, defensive parsers that turn a snapshot's `raw_text` into
   structured `list[dict]` records (devices, wlan clients, backhaul, nodes, ping,
-  radio stats/config, nic counters, system, lldp). No network or DB; unit-tested
-  against `sampleoutput.txt`. `friendly_name_index` / `enrich_friendly_names`
+  radio stats/config, nic counters, system, ip neighbors, lldp). No network or
+  DB; unit-tested against `sampleoutput.txt`. `parse_ip_neighbors` reads the
+  `ip neigh:` block (the ARP cache — a point-in-time IP↔MAC map + liveness
+  signal, **not** a DHCP lease) into one row per IP with family (inet/inet6),
+  bridge (`br0` main LAN / `br1` guest / `br2` Smart Connect / `eth0` WAN), MAC (NULL for
+  an unresolved `FAILED` entry), an `is_router` flag, and the cache state.
+  `friendly_name_index` / `enrich_friendly_names`
   join a JNAP `GetDevices3` payload onto the device records (by UUID, then MAC)
   to fill `friendly_name` — the CGI `Name` column is capped at ~16 chars and
   often blank.
@@ -55,15 +66,23 @@ editable install or with `src` on `PYTHONPATH`):
   manuf file. MAC addresses never leave the network.
 - `store.py` — CrateDB persistence. One `velop.sysinfo` row per snapshot plus the
   structured tables and `velop.oui`; CrateDB has no autoincrement so each row
-  gets a Python-generated UUID primary key.
+  gets a Python-generated UUID primary key. `velop.node_sysinfo` holds each
+  satellite's raw dump under the master's `snapshot_id`. `velop.radio_stats`
+  carries `source_node_mac/_name/_ip/_role` (added via `MIGRATIONS`) so a
+  satellite's `wifi0/1/2` is distinguishable from the master's.
 - `cli.py` — wires fetch → parse → enrich → store for a single run. The JNAP
   name fetch is **best-effort**: a network/auth failure logs a note and leaves
-  `friendly_name` NULL rather than losing the snapshot.
+  `friendly_name` NULL rather than losing the snapshot. After the master dump it
+  discovers satellites from `parse_nodes` (role=slave + ip) and fetches each one's
+  sysinfo for its radios — also **best-effort** per node (an offline node is
+  skipped, not fatal). Fetches are **sequential**, so wall-clock time scales with
+  node count (the CGI is slow).
 
-Data flow: `cli.main()` → `fetch_sysinfo(cfg)` → `parse.*` →
-`enrich_friendly_names(...)` (JNAP) → `enrich(...)` (OUI) →
-`store_sysinfo(...)` + `store_tier1(...)` into `velop.sysinfo` and the
-structured tables.
+Data flow: `cli.main()` → `fetch_sysinfo(cfg)` (master) → `parse.*` →
+per-node `fetch_sysinfo_url(...)` + `parse_radio_stats` + `tag_radio_source`
+(satellites) → `enrich_friendly_names(...)` (JNAP) → `enrich(...)` (OUI) →
+`store_sysinfo(...)` + `store_tier1(...)` + `store_node_sysinfo(...)` into
+`velop.sysinfo`, the structured tables, and `velop.node_sysinfo`.
 
 ## Key facts and gotchas
 
@@ -82,6 +101,21 @@ structured tables.
   `**************** End of Sysinfo Output ******************`.
 - `sampleoutput.txt` is a full real dump (~4800 lines) — the reference for the
   page format and any future parsing work.
+- **Radio counters are per-node; a radio's identity is (node, band, radio).**
+  `radio_stats` holds `wifi0/1/2` from every mesh node — names collide across
+  nodes and bands differ by model (master MX42 vs satellite WHW03: master
+  `wifi1`=2.4G but satellite `wifi0`=2.4G). So `velop.radio_stats` rows carry
+  `source_node_mac` and the rate views (`v_radio_rates`, `v_wifi_vs_wired`)
+  self-join on `source_node_mac` + band + radio, `COALESCE(source_node_mac,
+  'master')` so legacy untagged rows stay joinable. WiFi-vs-wired now sums all
+  nodes' radios for true mesh WiFi. **Re-run the `CREATE OR REPLACE VIEW`s in
+  the Crate UI after deploying** — the schema migration adds the columns but
+  views are not auto-updated.
+- **The dump does NOT contain real DHCP leases.** `/tmp/dnsmasq.leases` (lease
+  expiry, DHCP client-id, DHCP-supplied hostname) appears only as an `lsof`
+  open-fd reference, never its contents. `velop.ip_neighbor` (from `ip neigh:`)
+  is the closest per-IP source — the ARP cache, i.e. a point-in-time IP↔MAC map
+  + reachability state, not a lease. True lease data would need a JNAP call.
 - **OUI vendor lookups are offline.** They come from a local Wireshark `manuf`
   file (fetched by `velop-oui-update`), are cached in `velop.oui` keyed by the
   24-bit OUI, and never send MAC addresses off-network. A missing manuf file is
@@ -89,3 +123,20 @@ structured tables.
   longer IEEE MA-M/MA-S blocks are not distinguished.
 - Unit tests cover only pure logic (config, timestamp/marker parsing). The
   network and DB paths require a live router and CrateDB and are not tested.
+- **Grafana's PostgreSQL datasource silently drops result columns whose pg
+  type it can't convert — most commonly `NUMERIC` (OID 1700) — returning an
+  empty frame (HTTP 200, zero rows, no error) for SQL that runs fine
+  everywhere else.** The fault is in Grafana's frame converter, *not* CrateDB's
+  pg-wire path: the same query returns its rows correctly over the HTTP endpoint
+  (4200), over `psql` (simple protocol), and over `asyncpg` (extended
+  Parse/Bind/Execute). The usual trigger is the **two-argument
+  `ROUND(value, scale)`**, which CrateDB types as `NUMERIC`. **Fix: cast every
+  computed numeric column to `DOUBLE PRECISION`** (`ROUND(…, 4)::DOUBLE`,
+  float8/OID 701) or `REAL` before it leaves the query. (Query *shape* —
+  window functions, multi-CTE/multi-join, `TIMESTAMP`-equality joins — is *not*
+  the problem; all of those work over pg-wire. Keeping panel queries flat and
+  pushing logic into a view is still good practice, but only the column-type
+  cast is load-bearing.) Filter on epoch-ms (`fetched_at::BIGINT` vs Grafana's
+  `${__from}`/`${__to}`) rather than timestamp literals (which the pg session
+  timezone can shift). See `sql/grafana_radio_rates.sql` for the worked example
+  (`velop.v_radio_rates` + its flat panel queries).

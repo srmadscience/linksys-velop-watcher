@@ -8,12 +8,20 @@ from datetime import datetime, timezone
 import requests
 
 from .config import Config
-from .fetch import fetch_jnap_devices, fetch_sysinfo, parse_generated_at, router_host
+from .fetch import (
+    fetch_jnap_devices,
+    fetch_sysinfo,
+    fetch_sysinfo_url,
+    node_sysinfo_url,
+    parse_generated_at,
+    router_host,
+)
 from .parse import (
     enrich_friendly_names,
     friendly_name_index,
     parse_backhaul,
     parse_devices,
+    parse_ip_neighbors,
     parse_lldp,
     parse_nic_counters,
     parse_nodes,
@@ -22,9 +30,10 @@ from .parse import (
     parse_radio_stats,
     parse_system,
     parse_wlan_clients,
+    tag_radio_source,
 )
 from .oui import VendorResolver, enrich, load_manuf
-from .store import connect, ensure_schema, store_sysinfo, store_tier1
+from .store import connect, ensure_schema, store_node_sysinfo, store_sysinfo, store_tier1
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -57,8 +66,42 @@ def main(argv: list[str] | None = None) -> int:
         "radio_config": parse_radio_config(text),
         "nic_counters": parse_nic_counters(text),
         "system": parse_system(text),
+        "ip_neighbors": parse_ip_neighbors(text),
         "lldp": parse_lldp(text),
     }
+
+    # Whole-mesh WiFi: the master dump only carries the master's own radios, so
+    # client WiFi traffic (served mostly by satellites) is missing. Tag the
+    # master's radios, then fetch each satellite's dump for ITS radios. Each
+    # node fetch is best-effort -- an offline/unreachable node logs a note and is
+    # skipped rather than losing the whole capture. (Fetches are sequential; the
+    # CGI is slow, so this multiplies wall-clock time by the node count.)
+    nodes = parsed["nodes"]
+    master = next((n for n in nodes if n["role"] == "master"), None)
+    if master:
+        tag_radio_source(parsed["radio_stats"], master)
+    satellite_dumps: list[dict] = []
+    for node in nodes:
+        if node["role"] != "slave" or not node.get("ip"):
+            continue
+        try:
+            node_text = fetch_sysinfo_url(node_sysinfo_url(cfg, node["ip"]), cfg)
+        except (requests.RequestException, ValueError, TimeoutError) as exc:
+            print(f"note: sysinfo fetch from {node['name']} ({node['ip']}) failed "
+                  f"({exc}); its radios are skipped", file=sys.stderr)
+            continue
+        radios = tag_radio_source(parse_radio_stats(node_text), node)
+        parsed["radio_stats"].extend(radios)
+        satellite_dumps.append({
+            "node_mac": node["mac"],
+            "node_name": node["name"],
+            "node_ip": node["ip"],
+            "role": node["role"],
+            "raw_text": node_text,
+            "generated_at": parse_generated_at(node_text),
+        })
+        print(f"Captured {len(radios)} radios from {node['name']} ({node['ip']})",
+              file=sys.stderr)
 
     # Best-effort: enrich devices with their untruncated names from the JNAP
     # API. A failure here (network/auth) must not lose the snapshot.
@@ -89,6 +132,7 @@ def main(argv: list[str] | None = None) -> int:
         enrich(parsed, VendorResolver(conn, manuf))
         row_id = store_sysinfo(conn, text, fetched_at, generated_at, host)
         counts = store_tier1(conn, parsed, row_id, fetched_at)
+        counts["node_sysinfo"] = store_node_sysinfo(conn, satellite_dumps, row_id, fetched_at)
     finally:
         conn.close()
 

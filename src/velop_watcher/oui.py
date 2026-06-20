@@ -213,6 +213,7 @@ VENDOR_FIELDS: dict[str, list[tuple[str, str]]] = {
         ("userap5gh_bssid", "userap5gh_bssid_vendor"),
     ],
     "radio_config": [("mac", "mac_vendor")],
+    "ip_neighbors": [("mac", "mac_vendor")],
     "lldp": [("chassis_id", "chassis_id_vendor"), ("port_id", "port_id_vendor")],
 }
 
