@@ -1,0 +1,27 @@
+{
+  "name": "crate-jdbc-sink-velop-lldp-neighbor",
+  "config": {
+    "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+    "tasks.max": "1",
+    "topics": "velop.lldp_neighbor",
+    "connection.url": "jdbc:postgresql://endowment:5432/crate?sslmode=disable",
+    "connection.user": "scott",
+    "connection.password": "tiger",
+    "dialect.name": "PostgreSqlDatabaseDialect",
+    "auto.create": "false",
+    "auto.evolve": "true",
+    "insert.mode": "upsert",
+    "pk.mode": "record_value",
+    "pk.fields": "id",
+    "errors.tolerance": "all",
+    "errors.log.enable": "true",
+    "errors.log.include.messages": "true",
+    "value.converter": "io.confluent.connect.avro.AvroConverter",
+    "value.converter.schemas.enable": "true",
+    "value.converter.schema.registry.url": "http://badger:8081",
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "key.converter.schemas.enable": "false",
+    "table.name.format": "velop.lldp_neighbor",
+    "schema.pattern": "velop"
+  }
+}

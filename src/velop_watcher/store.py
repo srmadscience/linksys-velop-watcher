@@ -352,8 +352,11 @@ def _insert_rows(cur, table: str, columns: tuple, records: list[dict],
     cols = ("id", "snapshot_id", "fetched_at") + columns
     placeholders = ", ".join("?" for _ in cols)
     sql = f'INSERT INTO {table} ({", ".join(col_sql(c) for c in cols)}) VALUES ({placeholders})'
+    # Reuse a record's id when one was stamped up front (see kafka_sink.assign_ids)
+    # so the direct write and the Kafka/Connect path land the same primary key.
     params = [
-        [str(uuid.uuid4()), snapshot_id, fetched_at, *(rec.get(c) for c in columns)]
+        [rec.get("id") or str(uuid.uuid4()), snapshot_id, fetched_at,
+         *(rec.get(c) for c in columns)]
         for rec in records
     ]
     cur.executemany(sql, params)
@@ -409,8 +412,9 @@ def store_sysinfo(
     fetched_at: datetime,
     generated_at: datetime | None,
     router_host: str,
+    row_id: str | None = None,
 ) -> str:
-    row_id = str(uuid.uuid4())
+    row_id = row_id or str(uuid.uuid4())
     cur = conn.cursor()
     try:
         cur.execute(INSERT, (row_id, router_host, fetched_at, generated_at, raw_text))

@@ -70,6 +70,15 @@ editable install or with `src` on `PYTHONPATH`):
   satellite's raw dump under the master's `snapshot_id`. `velop.radio_stats`
   carries `source_node_mac/_name/_ip/_role` (added via `MIGRATIONS`) so a
   satellite's `wifi0/1/2` is distinguishable from the master's.
+- `kafka_sink.py` — optional second sink: produces each structured table to its
+  own Kafka topic (`velop.<table>`) as Confluent-Avro, mirroring hcpy's
+  `hc2kafka.py`. `TABLE_SPECS` declares one topic/Avro schema per table (column
+  kinds mirror `store._*_COLS`; a `test_kafka_sink` test asserts they don't
+  drift). `OBJECT`/`ARRAY` columns are sent as JSON strings; `fetched_at` is Avro
+  `timestamp-millis`. `assign_ids` stamps each record's `id` up front so the
+  CrateDB and Kafka paths share primary keys. `confluent_kafka` is imported
+  lazily inside `KafkaSink`, so the package imports without it. The matching JDBC
+  sink connectors live in `connect/` (see `connect/README.md`).
 - `cli.py` — wires fetch → parse → enrich → store for a single run. The JNAP
   name fetch is **best-effort**: a network/auth failure logs a note and leaves
   `friendly_name` NULL rather than losing the snapshot. After the master dump it
@@ -82,7 +91,9 @@ Data flow: `cli.main()` → `fetch_sysinfo(cfg)` (master) → `parse.*` →
 per-node `fetch_sysinfo_url(...)` + `parse_radio_stats` + `tag_radio_source`
 (satellites) → `enrich_friendly_names(...)` (JNAP) → `enrich(...)` (OUI) →
 `store_sysinfo(...)` + `store_tier1(...)` + `store_node_sysinfo(...)` into
-`velop.sysinfo`, the structured tables, and `velop.node_sysinfo`.
+`velop.sysinfo`, the structured tables, and `velop.node_sysinfo`. When
+`VELOP_SINK` is `kafka` or `both`, the structured records are also produced to
+Kafka via `KafkaSink` (raw_text is never produced).
 
 ## Key facts and gotchas
 
@@ -101,6 +112,17 @@ per-node `fetch_sysinfo_url(...)` + `parse_radio_stats` + `tag_radio_source`
   `**************** End of Sysinfo Output ******************`.
 - `sampleoutput.txt` is a full real dump (~4800 lines) — the reference for the
   page format and any future parsing work.
+- **Optional Kafka/Avro sink (`VELOP_SINK=crate|kafka|both`, default `crate`).**
+  `kafka`/`both` produce the 11 structured tables to `badger:9092` as
+  Confluent-Avro (schema registry `http://badger:8081`); `connect/` holds one
+  JDBC sink per topic that lands them in CrateDB over pg-wire (5432, *not* the
+  4200 HTTP path the direct write uses). Records carry an `id` shared with the
+  direct write, and sinks `upsert` on it, so `both` mode never duplicates rows.
+  Needs `confluent-kafka` (`pip install -e ".[kafka]"` or `requirements-kafka.txt`).
+  Two caveats: OBJECT/ARRAY columns are produced as JSON strings (verify the JDBC
+  sink lands JSON→`OBJECT`, esp. `radio_stats.stats` which the Grafana views
+  read); and `connect/*.json` carry `scott`/`tiger` CrateDB creds (matching hcpy)
+  — externalize via a Connect `ConfigProvider` if that matters.
 - **Radio counters are per-node; a radio's identity is (node, band, radio).**
   `radio_stats` holds `wifi0/1/2` from every mesh node — names collide across
   nodes and bands differ by model (master MX42 vs satellite WHW03: master
