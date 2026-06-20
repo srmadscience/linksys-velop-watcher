@@ -53,7 +53,7 @@ editable install or with `src` on `PYTHONPATH`):
   DB; unit-tested against `sampleoutput.txt`. `parse_ip_neighbors` reads the
   `ip neigh:` block (the ARP cache — a point-in-time IP↔MAC map + liveness
   signal, **not** a DHCP lease) into one row per IP with family (inet/inet6),
-  bridge (`br0` main LAN / `br1` guest / `br2` IoT / `eth0` WAN), MAC (NULL for
+  bridge (`br0` main LAN / `br1` guest / `br2` Smart Connect / `eth0` WAN), MAC (NULL for
   an unresolved `FAILED` entry), an `is_router` flag, and the cache state.
   `friendly_name_index` / `enrich_friendly_names`
   join a JNAP `GetDevices3` payload onto the device records (by UUID, then MAC)

@@ -230,7 +230,7 @@ TIER1_DDL = (
         ip TEXT,
         -- inet / inet6: the ip neigh block mixes IPv4 and IPv6 (fe80::) rows.
         family TEXT,
-        -- br0 main LAN, br1 guest, br2 IoT, eth0 WAN -- the subnet/VLAN the
+        -- br0 main LAN, br1 guest, br2 Smart Connect/inter-node, eth0 WAN -- the subnet/VLAN the
         -- neighbour was seen on.
         iface TEXT,
         -- NULL for an unresolved (FAILED) entry.

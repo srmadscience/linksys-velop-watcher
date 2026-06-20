@@ -474,7 +474,8 @@ def parse_ip_neighbors(text: str) -> list[dict]:
 
     Each record carries the IP, its address family (``inet``/``inet6``), the
     bridge/interface it was seen on (``br0`` main LAN, ``br1`` guest, ``br2``
-    IoT, ``eth0`` WAN), the resolved MAC (``None`` for an unresolved ``FAILED``
+    Smart Connect / inter-node, ``eth0`` WAN), the resolved MAC (``None`` for an
+    unresolved ``FAILED``
     entry), whether the neighbour advertised itself as a router, and the cache
     state (``REACHABLE``/``STALE``/``DELAY``/``FAILED``/...). This is the ARP
     cache at snapshot time -- a liveness signal and an IP<->MAC map independent

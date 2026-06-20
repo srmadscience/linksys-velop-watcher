@@ -8,7 +8,9 @@
 --   a DHCP lease table (the dump never exposes /tmp/dnsmasq.leases -- see
 --   CLAUDE.md). Each snapshot we count, per bridge/VLAN, how many hosts the
 --   router currently has a neighbour entry for:
---     * br0 -> Main LAN, br1 -> Guest, br2 -> IoT, eth0/eth1 -> WAN.
+--     * br0 -> Main LAN, br1 -> Guest, eth0/eth1 -> WAN. br2 (192.168.20.x) is
+--       the Velop "Smart Connect" inter-node network -- the only hosts on it are
+--       the mesh nodes' own second interfaces, not user/IoT devices.
 --     * A resolved entry (mac IS NOT NULL) means a host answered ARP; a FAILED
 --       entry (mac NULL) is a stale probe for an IP nobody answered, so it is
 --       counted separately as `unresolved`, not as a live host.
@@ -38,7 +40,7 @@ WITH n AS (
     CASE iface
       WHEN 'br0'  THEN 'Main LAN'
       WHEN 'br1'  THEN 'Guest'
-      WHEN 'br2'  THEN 'IoT'
+      WHEN 'br2'  THEN 'Smart Connect'
       WHEN 'eth0' THEN 'WAN'
       WHEN 'eth1' THEN 'WAN'
       ELSE iface
@@ -102,7 +104,7 @@ ORDER BY 1 ASC;
 -- SELECT
 --   ip,
 --   CASE iface WHEN 'br0' THEN 'Main LAN' WHEN 'br1' THEN 'Guest'
---              WHEN 'br2' THEN 'IoT' WHEN 'eth0' THEN 'WAN' WHEN 'eth1' THEN 'WAN'
+--              WHEN 'br2' THEN 'Smart Connect' WHEN 'eth0' THEN 'WAN' WHEN 'eth1' THEN 'WAN'
 --              ELSE iface END AS subnet,
 --   mac, mac_vendor, is_router, state
 -- FROM velop.ip_neighbor
