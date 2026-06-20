@@ -82,14 +82,39 @@ def read_until_marker(
     raise ValueError(f"completion marker {marker!r} not found before stream ended")
 
 
+def node_sysinfo_url(cfg: Config, ip: str) -> str:
+    """The sysinfo.cgi URL for a mesh node at ``ip``.
+
+    Every Velop node (master and satellites) serves the same diagnostic CGI on
+    its own LAN IP, with the same scheme/path/port as the configured master URL
+    -- only the host changes. Used to capture per-node radio counters, which are
+    local to each node (see cli.py / the whole-mesh WiFi feature).
+    """
+    parts = urlparse(cfg.router_url)
+    return parts._replace(netloc=ip).geturl()
+
+
 def fetch_sysinfo(cfg: Config, session: requests.Session | None = None) -> str:
-    """Download the full sysinfo.cgi output, returning it as text."""
+    """Download the full sysinfo.cgi output from the master, returning it as text."""
+    return fetch_sysinfo_url(cfg.router_url, cfg, session)
+
+
+def fetch_sysinfo_url(
+    url: str, cfg: Config, session: requests.Session | None = None
+) -> str:
+    """Download the full sysinfo.cgi output from ``url``, returning it as text.
+
+    The host varies (master or a satellite node) but auth, TLS, timeouts and the
+    slow-stream completion-marker handling are identical, so they come from
+    ``cfg``. The CGI streams progressively, so we read until the completion
+    marker rather than trusting the connection close.
+    """
     if not cfg.verify_tls:
         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
     sess = session or requests.Session()
     resp = sess.get(
-        cfg.router_url,
+        url,
         auth=HTTPBasicAuth(cfg.username, cfg.password),
         verify=cfg.verify_tls,
         stream=True,

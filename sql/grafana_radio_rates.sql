@@ -25,8 +25,13 @@
 -- radio_stats counters are cumulative since the node booted, so a "rate" is the
 -- delta between a snapshot and its immediate predecessor for the same radio,
 -- divided by the elapsed time. We compute that with a self-join; joins are on
--- text (band/radio) or BIGINT epoch-ms (t_ms) keys. `fetched_at` is carried
+-- text (node/band/radio) or BIGINT epoch-ms (t_ms) keys. `fetched_at` is carried
 -- only for display on the time axis.
+--
+-- radio_stats now holds one row per radio PER NODE (the watcher fetches each
+-- satellite's sysinfo too), so the self-join key includes source_node_mac --
+-- otherwise the satellites' wifi0/1/2 would collide with the master's. The
+-- metric label is prefixed with the node name.
 --
 -- USAGE:
 --   1. Run the CREATE VIEW below ONCE in the Crate Admin UI (HTTP endpoint),
@@ -39,7 +44,13 @@
 -- ===========================================================================
 CREATE OR REPLACE VIEW velop.v_radio_rates AS
 WITH s AS (
-  SELECT band, radio, fetched_at, fetched_at::BIGINT AS t_ms,
+  -- radio names (wifi0/1/2) repeat across mesh nodes and bands differ by model,
+  -- so a radio's identity is (node, band, radio). COALESCE keeps legacy
+  -- master-only rows (captured before per-node tagging) joinable under one key.
+  SELECT
+    COALESCE(source_node_mac, 'master')  AS node,
+    COALESCE(source_node_name, 'master') AS node_name,
+    band, radio, fetched_at, fetched_at::BIGINT AS t_ms,
     TRY_CAST(stats['tx_data_bytes']      AS BIGINT) AS tx_bytes,
     TRY_CAST(stats['rx_data_bytes']      AS BIGINT) AS rx_bytes,
     TRY_CAST(stats['tx_data_packets']    AS BIGINT) AS tx_pkts,
@@ -51,16 +62,16 @@ WITH s AS (
   FROM velop.radio_stats
 ),
 pairs AS (
-  -- each snapshot paired with its immediate predecessor (per radio) via self-join
-  SELECT a.band, a.radio, a.t_ms AS cur_ms, MAX(b.t_ms) AS prev_ms
+  -- each snapshot paired with its immediate predecessor (per node+radio) via self-join
+  SELECT a.node, a.band, a.radio, a.t_ms AS cur_ms, MAX(b.t_ms) AS prev_ms
   FROM s a
-  JOIN s b ON a.band = b.band AND a.radio = b.radio AND b.t_ms < a.t_ms
-  GROUP BY a.band, a.radio, a.t_ms
+  JOIN s b ON a.node = b.node AND a.band = b.band AND a.radio = b.radio AND b.t_ms < a.t_ms
+  GROUP BY a.node, a.band, a.radio, a.t_ms
 )
 SELECT
   cur.fetched_at,
   cur.t_ms,
-  p.band || ' / ' || p.radio AS metric,
+  cur.node_name || ' ' || p.band || ' / ' || p.radio AS metric,
   -- throughput = delta bytes * 8 bits / elapsed seconds / 1e6 -> Mbps.
   -- ::DOUBLE PRECISION on each ROUND() is mandatory: the 2-arg ROUND yields
   -- NUMERIC, which Grafana's frame converter drops (empty panel). See header.
@@ -76,8 +87,8 @@ SELECT
   -- (::DOUBLE PRECISION for the same Grafana-drops-NUMERIC reason as above)
   ROUND(100.0 * (cur.tx_failures - prv.tx_failures) / NULLIF(cur.tx_pkts - prv.tx_pkts, 0), 3)::DOUBLE PRECISION AS tx_fail_pct
 FROM pairs p
-JOIN s cur ON cur.band = p.band AND cur.radio = p.radio AND cur.t_ms = p.cur_ms
-JOIN s prv ON prv.band = p.band AND prv.radio = p.radio AND prv.t_ms = p.prev_ms
+JOIN s cur ON cur.node = p.node AND cur.band = p.band AND cur.radio = p.radio AND cur.t_ms = p.cur_ms
+JOIN s prv ON prv.node = p.node AND prv.band = p.band AND prv.radio = p.radio AND prv.t_ms = p.prev_ms
 WHERE (cur.tx_bytes - prv.tx_bytes) >= 0;   -- drop reboot intervals (counter reset)
 
 

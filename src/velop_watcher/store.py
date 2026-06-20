@@ -153,6 +153,13 @@ TIER1_DDL = (
         fetched_at TIMESTAMP WITH TIME ZONE,
         radio TEXT,
         band TEXT,
+        -- Which mesh node these radio counters came from. radio names (wifi0/1/2)
+        -- repeat across nodes and bands differ by model, so the source node is
+        -- part of a radio's identity; legacy (master-only) rows have it NULL.
+        source_node_mac TEXT,
+        source_node_name TEXT,
+        source_node_ip TEXT,
+        source_role TEXT,
         -- ~54 apstats counters per radio; columns vary, so keep them as a blob.
         stats OBJECT(IGNORED)
     )
@@ -198,6 +205,41 @@ TIER1_DDL = (
         cpu_idle_pct DOUBLE
     )
     """,
+    # Per-node raw sysinfo archive. The master dump lives in velop.sysinfo (the
+    # snapshot); each satellite's full dump is archived here under the same
+    # snapshot_id so the "raw_text is source of truth" principle extends to the
+    # whole mesh and satellite-local sections can be parsed later.
+    """
+    CREATE TABLE IF NOT EXISTS velop.node_sysinfo (
+        id TEXT PRIMARY KEY,
+        snapshot_id TEXT,
+        fetched_at TIMESTAMP WITH TIME ZONE,
+        generated_at TIMESTAMP WITH TIME ZONE,
+        node_mac TEXT,
+        node_name TEXT,
+        node_ip TEXT,
+        role TEXT,
+        raw_text TEXT INDEX OFF STORAGE WITH (columnstore = false)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS velop.ip_neighbor (
+        id TEXT PRIMARY KEY,
+        snapshot_id TEXT,
+        fetched_at TIMESTAMP WITH TIME ZONE,
+        ip TEXT,
+        -- inet / inet6: the ip neigh block mixes IPv4 and IPv6 (fe80::) rows.
+        family TEXT,
+        -- br0 main LAN, br1 guest, br2 IoT, eth0 WAN -- the subnet/VLAN the
+        -- neighbour was seen on.
+        iface TEXT,
+        -- NULL for an unresolved (FAILED) entry.
+        mac TEXT,
+        mac_vendor TEXT,
+        is_router BOOLEAN,
+        state TEXT
+    )
+    """,
     """
     CREATE TABLE IF NOT EXISTS velop.lldp_neighbor (
         id TEXT PRIMARY KEY,
@@ -241,12 +283,18 @@ _NODE_COLS = (
     "userap5gl_bssid", "userap5gl_bssid_vendor", "userap5gl_channel",
     "userap5gh_bssid", "userap5gh_bssid_vendor", "userap5gh_channel", "devinfo",
 )
-_RADIO_STATS_COLS = ("radio", "band", "stats")
+_RADIO_STATS_COLS = (
+    "radio", "band", "source_node_mac", "source_node_name", "source_node_ip",
+    "source_role", "stats",
+)
 _RADIO_CONFIG_COLS = ("interface", "ssid", "mac", "mac_vendor", "frequency", "settings")
 _NIC_COUNTER_COLS = ("intf", "rx_bytes", "tx_bytes")
 _SYSTEM_COLS = (
     "uptime_secs", "load_1", "load_5", "load_15", "mem_total", "mem_used",
     "mem_free", "mem_shared", "mem_buffers", "mem_cached", "cpu_idle_pct",
+)
+_IP_NEIGHBOR_COLS = (
+    "ip", "family", "iface", "mac", "mac_vendor", "is_router", "state",
 )
 _LLDP_COLS = (
     "interface", "rid", "chassis_id", "chassis_id_vendor", "sys_name", "sys_descr",
@@ -269,6 +317,10 @@ def connect(cfg: Config):
 # "already has a column" error on tables that already carry the column.
 MIGRATIONS = (
     "ALTER TABLE velop.device ADD COLUMN friendly_name TEXT",
+    "ALTER TABLE velop.radio_stats ADD COLUMN source_node_mac TEXT",
+    "ALTER TABLE velop.radio_stats ADD COLUMN source_node_name TEXT",
+    "ALTER TABLE velop.radio_stats ADD COLUMN source_node_ip TEXT",
+    "ALTER TABLE velop.radio_stats ADD COLUMN source_role TEXT",
 )
 
 
@@ -342,6 +394,8 @@ def store_tier1(conn, parsed: dict, snapshot_id: str, fetched_at: datetime) -> d
                                         parsed.get("nic_counters", []), snapshot_id, fetched_at),
             "system": _insert_rows(cur, "velop.system", _SYSTEM_COLS,
                                    parsed.get("system", []), snapshot_id, fetched_at),
+            "ip_neighbor": _insert_rows(cur, "velop.ip_neighbor", _IP_NEIGHBOR_COLS,
+                                        parsed.get("ip_neighbors", []), snapshot_id, fetched_at),
             "lldp_neighbor": _insert_rows(cur, "velop.lldp_neighbor", _LLDP_COLS,
                                           parsed.get("lldp", []), snapshot_id, fetched_at),
         }
@@ -363,3 +417,36 @@ def store_sysinfo(
     finally:
         cur.close()
     return row_id
+
+
+NODE_SYSINFO_INSERT = """
+INSERT INTO velop.node_sysinfo
+    (id, snapshot_id, fetched_at, generated_at, node_mac, node_name, node_ip, role, raw_text)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+"""
+
+
+def store_node_sysinfo(conn, nodes: list[dict], snapshot_id: str,
+                       fetched_at: datetime) -> int:
+    """Archive each satellite's raw sysinfo dump under the master's snapshot_id.
+
+    ``nodes`` is a list of dicts with ``raw_text``/``generated_at`` and the node
+    identity (``node_mac``/``node_name``/``node_ip``/``role``). Returns the
+    number of rows written.
+    """
+    if not nodes:
+        return 0
+    cur = conn.cursor()
+    try:
+        params = [
+            [
+                str(uuid.uuid4()), snapshot_id, fetched_at, n.get("generated_at"),
+                n.get("node_mac"), n.get("node_name"), n.get("node_ip"),
+                n.get("role"), n.get("raw_text"),
+            ]
+            for n in nodes
+        ]
+        cur.executemany(NODE_SYSINFO_INSERT, params)
+        return len(params)
+    finally:
+        cur.close()
