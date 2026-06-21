@@ -78,7 +78,11 @@ editable install or with `src` on `PYTHONPATH`):
   `timestamp-millis`. `assign_ids` stamps each record's `id` up front so the
   CrateDB and Kafka paths share primary keys. `confluent_kafka` is imported
   lazily inside `KafkaSink`, so the package imports without it. The matching JDBC
-  sink connectors live in `connect/` (see `connect/README.md`).
+  sink connectors live in `connect/` (see `connect/README.md`), with helper
+  scripts `connect/install-sinks.sh` (idempotent register/update via
+  `PUT /connectors/<name>/config`), `connect/restart-sinks.sh` (restart
+  connectors+tasks; FAILED-only or `--all`), and `connect/status-sinks.sh` — all
+  honour `CONNECT_URL` (default `http://badger:8083`) and need `curl` + `jq`.
 - `cli.py` — wires fetch → parse → enrich → store for a single run. The JNAP
   name fetch is **best-effort**: a network/auth failure logs a note and leaves
   `friendly_name` NULL rather than losing the snapshot. After the master dump it
