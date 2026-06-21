@@ -42,14 +42,27 @@ subject on the first produce, so run the watcher once before starting the sinks.
    **plain (not partitioned)**: the Confluent JDBC sink checks table existence
    via JDBC metadata, and an empty *partitioned* CrateDB table is invisible to
    that check (it fails with "table is missing").
-2. **Register each connector** against the Connect REST API:
+2. **Register the connectors** with the helper script (idempotent — it PUTs each
+   config, so re-running updates in place rather than 409-ing):
    ```bash
-   for f in connect/velop-sink-*.json; do
-     curl -s -X POST -H 'Content-Type: application/json' \
-       --data @"$f" http://<connect-host>:8083/connectors | jq .name
-   done
+   CONNECT_URL=http://<connect-host>:8083 ./connect/install-sinks.sh
+   # CONNECT_URL defaults to http://badger:8083 if unset
    ```
-3. Check status: `curl http://<connect-host>:8083/connectors/crate-jdbc-sink-velop-device/status`.
+3. **Check status** (connector + task states for all sinks):
+   ```bash
+   ./connect/status-sinks.sh
+   ```
+
+### Restarting
+
+After a CrateDB/Connect bounce or to clear FAILED tasks without re-applying config:
+
+```bash
+./connect/restart-sinks.sh          # restart only FAILED connectors/tasks
+./connect/restart-sinks.sh --all    # restart every connector + its tasks
+```
+
+All three scripts honour `CONNECT_URL` and need `curl` + `jq`.
 
 ## Caveats
 
