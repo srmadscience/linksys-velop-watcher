@@ -22,6 +22,7 @@ export VELOP_URL="https://10.13.1.1/sysinfo.cgi"
 export VELOP_USER="admin"
 export VELOP_PASSWORD="$1"
 export VELOP_VERIFY_TLS="false"
+export VELOP_SINK=kafka
 
 # --- CrateDB ---
 # The CrateDB password is a secret, so it is NOT hard-coded here. It is read
