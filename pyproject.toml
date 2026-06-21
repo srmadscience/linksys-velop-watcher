@@ -6,13 +6,12 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "requests>=2.31",
-    "crate>=1.0",
+    # Avro/Kafka producer path -- the only sink. Also in requirements-kafka.txt.
+    "confluent-kafka[schemaregistry,avro]",
 ]
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
-# Avro/Kafka producer path (VELOP_SINK=kafka|both); also in requirements-kafka.txt.
-kafka = ["confluent-kafka[schemaregistry,avro]"]
 
 [project.scripts]
 velop-watcher = "velop_watcher.cli:main"

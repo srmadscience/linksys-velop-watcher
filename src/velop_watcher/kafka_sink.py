@@ -9,9 +9,9 @@ module declares one topic + Avro schema + serializer per table.
 Design notes:
 - One topic per table, ``<kafka_topic_prefix><table>`` (e.g. ``velop.device``);
   key is the snapshot id so all of a snapshot's rows for a table share a key.
-- Every record carries ``id`` (its CrateDB primary key, generated up front so the
-  direct-CrateDB and Kafka paths agree -- see ``cli``/``store``), ``snapshot_id``
-  and ``fetched_at`` (Avro ``timestamp-millis``).
+- Every record carries ``id`` (its CrateDB primary key, generated up front so a
+  Connect JDBC sink upsert is stable on re-delivery -- see ``cli``/``assign_ids``),
+  ``snapshot_id`` and ``fetched_at`` (Avro ``timestamp-millis``).
 - CrateDB ``OBJECT(IGNORED)`` columns (``devinfo``/``stats``/``settings``/
   ``capabilities``) and ``ARRAY(TEXT)`` columns are encoded as JSON strings --
   Avro/JDBC has no clean dynamic-object mapping. The matching JDBC sink lands
@@ -60,8 +60,8 @@ class TableSpec:
         return {name for name, kind in self.columns if kind == "json"}
 
 
-# The 11 structured tables produced to Kafka (raw_text sysinfo/node_sysinfo and
-# the oui cache are intentionally excluded). Column order/kinds mirror store.py.
+# The 11 structured tables produced to Kafka (the raw_text sysinfo dumps are
+# intentionally excluded). Column order mirrors schema.TABLES (asserted in tests).
 TABLE_SPECS: list[TableSpec] = [
     TableSpec("devices", "device", [
         ("uuid", "str"), ("mac", "str"), ("mac_vendor", "str"), ("ip", "str"),
@@ -128,9 +128,8 @@ TABLE_SPECS: list[TableSpec] = [
 def assign_ids(parsed: dict) -> None:
     """Stamp every structured record with an ``id`` (its CrateDB primary key).
 
-    Generated up front, in place, so the direct-CrateDB write and the Kafka
-    producer reference the same id -- a Connect JDBC sink upsert then never
-    duplicates a row the direct path already wrote. Idempotent per record.
+    Generated up front, in place, so a Connect JDBC sink upsert keys on a stable
+    id -- Kafka re-delivery then never duplicates a row. Idempotent per record.
     """
     for spec in TABLE_SPECS:
         for rec in parsed.get(spec.parsed_key, []) or []:
