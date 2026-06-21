@@ -1,0 +1,16 @@
+# Template — install with systemd/install-service.sh, which fills @PLACEHOLDERS@.
+#
+# Runs velop-watcher.service every @INTERVAL@ (measured from the end of the last
+# run). Persistent=true makes the Pi catch up one missed run after downtime.
+[Unit]
+Description=Run velop-watcher periodically
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=@INTERVAL@
+AccuracySec=30s
+Persistent=true
+Unit=velop-watcher.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,23 @@
+# Template — install with systemd/install-service.sh, which fills @PLACEHOLDERS@.
+#
+# One-shot: fetch a single Velop sysinfo snapshot and store it (CrateDB + Kafka).
+# Scheduling is handled by velop-watcher.timer, not by this unit.
+[Unit]
+Description=Velop sysinfo watcher (one snapshot -> CrateDB + Kafka)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=@USER@
+WorkingDirectory=@REPO_DIR@
+# Secrets (VELOP_PASSWORD, CRATE_PASSWORD) come from here, not the command line.
+EnvironmentFile=@ENVFILE@
+ExecStart=@REPO_DIR@/run-watcher.sh
+# The CGI streams slowly and satellites are fetched sequentially; give it room.
+TimeoutStartSec=600
+Nice=10
+# Light hardening (the watcher only needs network + its own repo dir).
+NoNewPrivileges=true
+ProtectSystem=full
+PrivateTmp=true

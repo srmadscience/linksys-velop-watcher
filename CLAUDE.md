@@ -27,7 +27,17 @@ pytest tests/test_fetch.py::test_parse_generated_at   # single test
 set -a; source .env; set +a  # load config from .env
 velop-oui-update             # fetch the Wireshark manuf file to OUI_MANUF_PATH (do this once)
 velop-watcher                # fetch one snapshot and store it (also: python -m velop_watcher.cli)
+
+./run-watcher.sh <pw>        # one-shot wrapper: hard-codes config, runs velop-watcher
+sudo ./systemd/install-service.sh   # install as a Pi timer-driven service (see systemd/README.md)
 ```
+
+The watcher does **one snapshot per run** and exits, so on a Pi it runs as a
+systemd `oneshot` service triggered by a `.timer` (every `VELOP_INTERVAL`,
+default 5min) — *not* a long-lived daemon. `run-watcher.sh` takes the router
+password as `$1` **or** the `VELOP_PASSWORD` env var (the service supplies it via
+an `EnvironmentFile` so the secret never appears in `ps`); `CRATE_PASSWORD` comes
+from `.env` or the environment. See `systemd/` for the units and installer.
 
 ## Architecture
 
