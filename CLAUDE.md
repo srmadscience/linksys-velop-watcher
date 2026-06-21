@@ -5,15 +5,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What this is
 
 A watcher that periodically downloads the `sysinfo.cgi` diagnostic dump from a
-Linksys Velop mesh router and archives each snapshot in CrateDB, to study the
-router and track its state over time. It stores the full page as raw text in
-`velop.sysinfo` (the source of truth) and also parses it into structured,
-snapshot-linked tables (devices, wlan clients, backhaul, nodes, ping, radio
-stats/config, nic counters, system, ip neighbors, lldp), with each MAC
-annotated with its vendor via an offline OUI lookup. It also fetches each
-**satellite node's** sysinfo (radio counters are local to each node), archiving
-those dumps in `velop.node_sysinfo` and tagging their radios by source node so
-WiFi throughput reflects the whole mesh, not just the master.
+Linksys Velop mesh router and **produces each snapshot to Kafka as
+Confluent-Avro** (one topic per table), to study the router and track its state
+over time. It parses the dump into structured, snapshot-linked records (devices,
+wlan clients, backhaul, nodes, ping, radio stats/config, nic counters, system,
+ip neighbors, lldp), with each MAC annotated with its vendor via an offline OUI
+lookup. It also fetches each **satellite node's** sysinfo (radio counters are
+local to each node) and tags their radios by source node so WiFi throughput
+reflects the whole mesh, not just the master.
+
+**Kafka is the only sink.** The watcher does not talk to CrateDB; the Kafka
+Connect JDBC sinks in `connect/` land the records into the `velop.*` CrateDB
+tables (which must pre-exist — `sql/velop_schema.sql`). There is no raw_text
+archive any more (`velop.sysinfo`/`node_sysinfo` are gone): only the 11
+structured tables are produced. (History: the project used to write to CrateDB
+directly via the `crate` Python client; that path and the `VELOP_SINK`
+crate/both modes were removed — the `crate` PyPI wheel is broken/empty on
+piwheels, which made it unusable on the Raspberry Pi target.)
 
 ## Commands
 
@@ -26,7 +34,7 @@ pytest tests/test_fetch.py::test_parse_generated_at   # single test
 
 set -a; source .env; set +a  # load config from .env
 velop-oui-update             # fetch the Wireshark manuf file to OUI_MANUF_PATH (do this once)
-velop-watcher                # fetch one snapshot and store it (also: python -m velop_watcher.cli)
+velop-watcher                # fetch one snapshot and produce it to Kafka (also: python -m velop_watcher.cli)
 
 ./run-watcher.sh <pw>        # one-shot wrapper: hard-codes config, runs velop-watcher
 sudo ./systemd/install-service.sh   # install as a Pi timer-driven service (see systemd/README.md)
@@ -36,8 +44,9 @@ The watcher does **one snapshot per run** and exits, so on a Pi it runs as a
 systemd `oneshot` service triggered by a `.timer` (every `VELOP_INTERVAL`,
 default 5min) — *not* a long-lived daemon. `run-watcher.sh` takes the router
 password as `$1` **or** the `VELOP_PASSWORD` env var (the service supplies it via
-an `EnvironmentFile` so the secret never appears in `ps`); `CRATE_PASSWORD` comes
-from `.env` or the environment. See `systemd/` for the units and installer.
+an `EnvironmentFile` so the secret never appears in `ps`). See `systemd/` for the
+units and installer (the installer pins PyPI over piwheels and asserts the venv
+imports before enabling the timer).
 
 ## Architecture
 
@@ -70,30 +79,32 @@ editable install or with `src` on `PYTHONPATH`):
   to fill `friendly_name` — the CGI `Name` column is capped at ~16 chars and
   often blank.
 - `oui.py` — MAC→vendor resolution. `ManufDB` parses a local Wireshark `manuf`
-  file; `VendorResolver` resolves each MAC's 24-bit OUI, caching results (incl.
-  NULL misses) in `velop.oui`. `enrich()` adds a `*_vendor` field beside every
-  MAC field before storage. `velop-oui-update` (→ `update_main`) downloads the
-  manuf file. MAC addresses never leave the network.
-- `store.py` — CrateDB persistence. One `velop.sysinfo` row per snapshot plus the
-  structured tables and `velop.oui`; CrateDB has no autoincrement so each row
-  gets a Python-generated UUID primary key. `velop.node_sysinfo` holds each
-  satellite's raw dump under the master's `snapshot_id`. `velop.radio_stats`
-  carries `source_node_mac/_name/_ip/_role` (added via `MIGRATIONS`) so a
-  satellite's `wifi0/1/2` is distinguishable from the master's.
-- `kafka_sink.py` — optional second sink: produces each structured table to its
-  own Kafka topic (`velop.<table>`) as Confluent-Avro, mirroring hcpy's
+  file; `VendorResolver` resolves each MAC's 24-bit OUI. `enrich()` adds a
+  `*_vendor` field beside every MAC field before producing. `velop-oui-update`
+  (→ `update_main`) downloads the manuf file. MAC addresses never leave the
+  network. (`VendorResolver` still has a dormant DB-cache path that takes a
+  DBAPI `conn`; `cli` always passes `None`, so lookups resolve straight from the
+  manuf file. The old `velop.oui` cache table is gone with the crate path.)
+- `schema.py` — **single source of truth** for the 11 structured tables'
+  CrateDB column order and types (`TABLES`). `kafka_sink.TABLE_SPECS` must mirror
+  it (asserted by `test_specs_match_schema_columns`), and `schema_sql()`
+  generates `sql/velop_schema.sql` (run `python -m velop_watcher.schema`). There
+  is no Python that writes to CrateDB; the tables are created from that SQL and
+  filled by the Connect sinks. (Replaced the old `store.py`.)
+- `kafka_sink.py` — the only sink: produces each structured table to its own
+  Kafka topic (`velop.<table>`) as Confluent-Avro, mirroring hcpy's
   `hc2kafka.py`. `TABLE_SPECS` declares one topic/Avro schema per table (column
-  kinds mirror `store._*_COLS`; a `test_kafka_sink` test asserts they don't
-  drift). `OBJECT`/`ARRAY` columns are sent as JSON strings; `fetched_at` is Avro
-  `timestamp-millis`. `assign_ids` stamps each record's `id` up front so the
-  CrateDB and Kafka paths share primary keys. `confluent_kafka` is imported
-  lazily inside `KafkaSink`, so the package imports without it. The matching JDBC
+  order mirrors `schema.TABLES`; a `test_kafka_sink` test asserts no drift).
+  `OBJECT`/`ARRAY` columns are sent as JSON strings; `fetched_at` is Avro
+  `timestamp-millis`. `assign_ids` stamps each record's `id` up front (the
+  CrateDB primary key) so a Connect sink upsert is stable on re-delivery.
+  `confluent_kafka` is imported lazily inside `KafkaSink`. The matching JDBC
   sink connectors live in `connect/` (see `connect/README.md`), with helper
   scripts `connect/install-sinks.sh` (idempotent register/update via
   `PUT /connectors/<name>/config`), `connect/restart-sinks.sh` (restart
   connectors+tasks; FAILED-only or `--all`), and `connect/status-sinks.sh` — all
   honour `CONNECT_URL` (default `http://badger:8083`) and need `curl` + `jq`.
-- `cli.py` — wires fetch → parse → enrich → store for a single run. The JNAP
+- `cli.py` — wires fetch → parse → enrich → produce for a single run. The JNAP
   name fetch is **best-effort**: a network/auth failure logs a note and leaves
   `friendly_name` NULL rather than losing the snapshot. After the master dump it
   discovers satellites from `parse_nodes` (role=slave + ip) and fetches each one's
@@ -104,10 +115,9 @@ editable install or with `src` on `PYTHONPATH`):
 Data flow: `cli.main()` → `fetch_sysinfo(cfg)` (master) → `parse.*` →
 per-node `fetch_sysinfo_url(...)` + `parse_radio_stats` + `tag_radio_source`
 (satellites) → `enrich_friendly_names(...)` (JNAP) → `enrich(...)` (OUI) →
-`store_sysinfo(...)` + `store_tier1(...)` + `store_node_sysinfo(...)` into
-`velop.sysinfo`, the structured tables, and `velop.node_sysinfo`. When
-`VELOP_SINK` is `kafka` or `both`, the structured records are also produced to
-Kafka via `KafkaSink` (raw_text is never produced).
+`assign_ids(...)` → `KafkaSink.produce(...)` (Confluent-Avro, one topic per
+table). The Connect JDBC sinks in `connect/` carry the records into the
+`velop.*` CrateDB tables.
 
 ## Key facts and gotchas
 
@@ -115,24 +125,22 @@ Kafka via `KafkaSink` (raw_text is never produced).
   `VELOP_PASSWORD` at runtime. Keep it out of source, tests, and memory.
 - The router has a **self-signed TLS cert**, so `verify_tls` defaults to `False`
   (TLS warnings are suppressed). Auth is HTTP Basic.
-- **CrateDB is reached over HTTP (port 4200)** using the official `crate`
-  client — *not* the PostgreSQL wire protocol. Connection comes from
-  `CRATE_URL` / `CRATE_USER` / `CRATE_PASSWORD`. The client uses the **qmark
-  paramstyle** (`?`, not `%s`). CrateDB does not support real transactions and
-  lacks autoincrement — keep DDL/SQL within that subset. It also has **no
-  `ADD COLUMN IF NOT EXISTS`**; `store.MIGRATIONS` runs a plain `ALTER TABLE …
-  ADD COLUMN` and swallows the "already has a column" error to stay idempotent.
+- **CrateDB is never reached by the watcher.** Records get there only via the
+  Kafka Connect JDBC sinks (`connect/`), over pg-wire (port 5432). The `velop.*`
+  tables must pre-exist — apply `sql/velop_schema.sql` (generated from
+  `schema.py`). The sinks run `auto.create=false` and `insert.mode=upsert` on
+  `id`. CrateDB lacks transactions/autoincrement, so the schema gives each row a
+  Python-generated UUID `id` and there is no multi-row atomicity.
 - The completion marker is matched as a substring; in real output it appears as
   `**************** End of Sysinfo Output ******************`.
 - `sampleoutput.txt` is a full real dump (~4800 lines) — the reference for the
   page format and any future parsing work.
-- **Optional Kafka/Avro sink (`VELOP_SINK=crate|kafka|both`, default `crate`).**
-  `kafka`/`both` produce the 11 structured tables to `badger:9092` as
-  Confluent-Avro (schema registry `http://badger:8081`); `connect/` holds one
-  JDBC sink per topic that lands them in CrateDB over pg-wire (5432, *not* the
-  4200 HTTP path the direct write uses). Records carry an `id` shared with the
-  direct write, and sinks `upsert` on it, so `both` mode never duplicates rows.
-  Needs `confluent-kafka` (`pip install -e ".[kafka]"` or `requirements-kafka.txt`).
+- **Kafka/Avro is the only sink.** The 11 structured tables are produced to
+  `badger:9092` as Confluent-Avro (schema registry `http://badger:8081`);
+  `connect/` holds one JDBC sink per topic that lands them in CrateDB over
+  pg-wire (5432). Records carry an `id` (`assign_ids`) and sinks `upsert` on it,
+  so Kafka re-delivery never duplicates rows. Needs `confluent-kafka` (a core
+  dependency now: `pip install -e .`).
   Two caveats: OBJECT/ARRAY columns are produced as JSON strings (verify the JDBC
   sink lands JSON→`OBJECT`, esp. `radio_stats.stats` which the Grafana views
   read); and `connect/*.json` carry `scott`/`tiger` CrateDB creds (matching hcpy)
@@ -144,21 +152,22 @@ Kafka via `KafkaSink` (raw_text is never produced).
   `source_node_mac` and the rate views (`v_radio_rates`, `v_wifi_vs_wired`)
   self-join on `source_node_mac` + band + radio, `COALESCE(source_node_mac,
   'master')` so legacy untagged rows stay joinable. WiFi-vs-wired now sums all
-  nodes' radios for true mesh WiFi. **Re-run the `CREATE OR REPLACE VIEW`s in
-  the Crate UI after deploying** — the schema migration adds the columns but
-  views are not auto-updated.
+  nodes' radios for true mesh WiFi. The `source_node_*` columns are part of the
+  base schema (`sql/velop_schema.sql`); **re-run the `CREATE OR REPLACE VIEW`s in
+  the Crate UI after deploying** — views are not auto-updated.
 - **The dump does NOT contain real DHCP leases.** `/tmp/dnsmasq.leases` (lease
   expiry, DHCP client-id, DHCP-supplied hostname) appears only as an `lsof`
   open-fd reference, never its contents. `velop.ip_neighbor` (from `ip neigh:`)
   is the closest per-IP source — the ARP cache, i.e. a point-in-time IP↔MAC map
   + reachability state, not a lease. True lease data would need a JNAP call.
 - **OUI vendor lookups are offline.** They come from a local Wireshark `manuf`
-  file (fetched by `velop-oui-update`), are cached in `velop.oui` keyed by the
-  24-bit OUI, and never send MAC addresses off-network. A missing manuf file is
-  not fatal — vendor columns just stay NULL. The cache keys on 24 bits, so the
-  longer IEEE MA-M/MA-S blocks are not distinguished.
-- Unit tests cover only pure logic (config, timestamp/marker parsing). The
-  network and DB paths require a live router and CrateDB and are not tested.
+  file (fetched by `velop-oui-update`), resolved by the 24-bit OUI, and never
+  send MAC addresses off-network. A missing manuf file is not fatal — vendor
+  columns just stay NULL. Resolution keys on 24 bits, so the longer IEEE
+  MA-M/MA-S blocks are not distinguished.
+- Unit tests cover only pure logic (config, timestamp/marker parsing, parsers,
+  Avro spec/schema helpers). The network and Kafka paths require a live router
+  and broker and are not tested.
 - **Grafana's PostgreSQL datasource silently drops result columns whose pg
   type it can't convert — most commonly `NUMERIC` (OID 1700) — returning an
   empty frame (HTTP 200, zero rows, no error) for SQL that runs fine

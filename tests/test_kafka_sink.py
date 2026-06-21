@@ -7,44 +7,21 @@ covered here, matching the project's network/DB test boundary.
 import json
 from datetime import datetime, timezone
 
-from velop_watcher import kafka_sink
+from velop_watcher import kafka_sink, schema
 from velop_watcher.kafka_sink import TABLE_SPECS, assign_ids, record_value, value_schema
-from velop_watcher.store import (
-    _BACKHAUL_COLS,
-    _DEVICE_COLS,
-    _IP_NEIGHBOR_COLS,
-    _LLDP_COLS,
-    _NIC_COUNTER_COLS,
-    _NODE_COLS,
-    _PING_COLS,
-    _RADIO_CONFIG_COLS,
-    _RADIO_STATS_COLS,
-    _SYSTEM_COLS,
-    _WLAN_COLS,
-)
-
-_STORE_COLS = {
-    "device": _DEVICE_COLS,
-    "wlan_client": _WLAN_COLS,
-    "backhaul": _BACKHAUL_COLS,
-    "ping": _PING_COLS,
-    "node": _NODE_COLS,
-    "radio_stats": _RADIO_STATS_COLS,
-    "radio_config": _RADIO_CONFIG_COLS,
-    "nic_counter": _NIC_COUNTER_COLS,
-    "system": _SYSTEM_COLS,
-    "ip_neighbor": _IP_NEIGHBOR_COLS,
-    "lldp_neighbor": _LLDP_COLS,
-}
 
 
-def test_specs_match_store_columns():
-    """Each topic's columns must mirror the CrateDB table's columns (same order)."""
+def test_specs_match_schema_columns():
+    """Each topic's columns must mirror its CrateDB table's columns (same order).
+
+    schema.TABLES is the single source of truth (it also generates the DDL the
+    Connect JDBC sinks land into), so the Avro specs must not drift from it.
+    """
     by_table = {spec.table: spec for spec in TABLE_SPECS}
-    assert set(by_table) == set(_STORE_COLS)
-    for table, cols in _STORE_COLS.items():
-        spec_cols = tuple(name for name, _kind in by_table[table].columns)
-        assert spec_cols == tuple(cols), table
+    assert set(by_table) == set(schema.TABLES)
+    for table in schema.TABLES:
+        spec_cols = [name for name, _kind in by_table[table].columns]
+        assert spec_cols == schema.column_names(table), table
 
 
 def test_value_schema_is_valid_avro_with_meta_fields():

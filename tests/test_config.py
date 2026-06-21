@@ -18,9 +18,8 @@ def test_env_overrides():
             "VELOP_PASSWORD": "secret",
             "VELOP_VERIFY_TLS": "true",
             "VELOP_READ_TIMEOUT": "5",
-            "CRATE_URL": "http://endowment:4200",
-            "CRATE_USER": "scott",
-            "CRATE_PASSWORD": "tiger",
+            "KAFKA_BOOTSTRAP": "badger:9092",
+            "SCHEMA_REGISTRY_URL": "http://badger:8081",
         }
     )
     assert cfg.router_url == "https://192.168.1.1/sysinfo.cgi"
@@ -28,6 +27,5 @@ def test_env_overrides():
     assert cfg.password == "secret"
     assert cfg.verify_tls is True
     assert cfg.read_timeout == 5.0
-    assert cfg.crate_url == "http://endowment:4200"
-    assert cfg.crate_user == "scott"
-    assert cfg.crate_password == "tiger"
+    assert cfg.kafka_bootstrap == "badger:9092"
+    assert cfg.schema_registry_url == "http://badger:8081"

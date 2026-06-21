@@ -27,7 +27,9 @@ sudo ./systemd/install-service.sh
 ```
 
 It will:
-1. create `.venv` and `pip install -e ".[kafka]"` (as the service user),
+1. create `.venv` and `pip install -e .` (as the service user), then assert the
+   package imports (it aborts before enabling the timer if a broken wheel left
+   the venv incomplete),
 2. fetch the OUI `manuf` file if missing,
 3. create `/etc/velop-watcher/velop-watcher.env` (chmod 600),
 4. install + enable the timer.
@@ -35,7 +37,7 @@ It will:
 Then **edit the secrets** and you're done:
 
 ```bash
-sudo nano /etc/velop-watcher/velop-watcher.env   # set VELOP_PASSWORD + CRATE_PASSWORD
+sudo nano /etc/velop-watcher/velop-watcher.env   # set VELOP_PASSWORD
 sudo systemctl start velop-watcher.service       # trigger one run now
 ```
 
@@ -66,8 +68,8 @@ sudo systemctl disable --now velop-watcher.timer   # pause scheduling
   0600) and reach the process via `EnvironmentFile=` — never on the command line,
   so they don't show up in `ps`. All non-secret settings stay hard-coded in
   `run-watcher.sh`.
-- The unit ships `VELOP_SINK=kafka` (from `run-watcher.sh`), so each run produces
-  Avro to Kafka for the `connect/` JDBC sinks. Make sure those sinks are
-  installed (`connect/install-sinks.sh`) and the `velop.*` CrateDB tables exist.
+- Each run produces Avro to Kafka for the `connect/` JDBC sinks (Kafka is the
+  only sink). Make sure those sinks are installed (`connect/install-sinks.sh`)
+  and the `velop.*` CrateDB tables exist (`crash < sql/velop_schema.sql`).
 - Re-run `install-service.sh` after a `git pull` to pick up unit or interval
   changes; it won't overwrite your secrets file.

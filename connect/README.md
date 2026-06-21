@@ -23,11 +23,10 @@ to Kafka — see `kafka_sink.py`.)
 
 ## Producing
 
-Run the watcher with the Kafka sink enabled:
+Kafka is the watcher's only sink, so just run it:
 
 ```bash
-VELOP_SINK=kafka  velop-watcher      # Kafka only
-VELOP_SINK=both   velop-watcher      # CrateDB direct AND Kafka (shared row ids)
+velop-watcher
 # defaults: KAFKA_BOOTSTRAP=badger:9092  SCHEMA_REGISTRY_URL=http://badger:8081
 ```
 
@@ -36,12 +35,16 @@ subject on the first produce, so run the watcher once before starting the sinks.
 
 ## Deploying the sinks
 
-1. **Tables must exist first** — the sinks run `auto.create:false`. Create them
-   by running `velop-watcher` once in `crate`/`both` mode (its `ensure_schema`
-   creates every `velop.*` table), or apply the DDL by hand. The tables are
-   **plain (not partitioned)**: the Confluent JDBC sink checks table existence
-   via JDBC metadata, and an empty *partitioned* CrateDB table is invisible to
-   that check (it fails with "table is missing").
+1. **Tables must exist first** — the sinks run `auto.create:false`, and the
+   watcher no longer creates them (it only produces to Kafka). Apply the DDL
+   once:
+   ```bash
+   crash < sql/velop_schema.sql     # or psql, or paste into the CrateDB admin UI
+   ```
+   (`sql/velop_schema.sql` is generated from `velop_watcher/schema.py`.) The
+   tables are **plain (not partitioned)**: the Confluent JDBC sink checks table
+   existence via JDBC metadata, and an empty *partitioned* CrateDB table is
+   invisible to that check (it fails with "table is missing").
 2. **Register the connectors** with the helper script (idempotent — it PUTs each
    config, so re-running updates in place rather than 409-ing):
    ```bash
@@ -77,6 +80,6 @@ All three scripts honour `CONNECT_URL` and need `curl` + `jq`.
   `velop.radio_stats` first, since its `stats` object is read by the Grafana
   views). If CrateDB rejects the string, those columns may need to be `TEXT` in
   the sink target, or `cast` via an SMT.
-- **Idempotency**: sinks use `insert.mode=upsert` with `pk.fields=id`. Because
-  the direct-CrateDB write and the Kafka record share the same `id`, `both` mode
-  and Kafka re-delivery upsert the same row rather than duplicating it.
+- **Idempotency**: sinks use `insert.mode=upsert` with `pk.fields=id`. Each
+  record's `id` is stamped once by the watcher (`kafka_sink.assign_ids`), so
+  Kafka re-delivery upserts the same row rather than duplicating it.

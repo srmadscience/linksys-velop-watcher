@@ -46,17 +46,27 @@ echo "Interval: $INTERVAL"
 echo
 
 # 1. virtualenv + package (as the service user, never root)
-if [[ ! -x "${REPO_DIR}/.venv/bin/velop-watcher" ]]; then
-  echo "Creating virtualenv + installing package (kafka extra) as ${SERVICE_USER}..."
-  sudo -u "$SERVICE_USER" bash -c "
-    cd '${REPO_DIR}' &&
-    python3 -m venv .venv &&
-    .venv/bin/pip install --upgrade pip &&
-    .venv/bin/pip install -e '.[kafka]'
-  "
-else
-  echo "virtualenv already present — skipping pip install"
+#    PIP_INDEX_URL pins PyPI: Raspberry Pi OS adds piwheels in /etc/pip.conf,
+#    which has served empty/broken wheels for some pure-Python packages.
+echo "Creating virtualenv + installing package as ${SERVICE_USER}..."
+sudo -u "$SERVICE_USER" PIP_INDEX_URL="https://pypi.org/simple" bash -c "
+  cd '${REPO_DIR}' &&
+  python3 -m venv .venv &&
+  .venv/bin/pip install --upgrade pip &&
+  .venv/bin/pip install --no-cache-dir -e .
+"
+
+# 1a. Assert the package actually imports before we enable anything -- a broken
+#     wheel (empty install) must fail loudly here, not at the first timer tick.
+echo "Verifying imports..."
+if ! sudo -u "$SERVICE_USER" "${REPO_DIR}/.venv/bin/python" \
+     -c "import velop_watcher.cli, requests, confluent_kafka" 2>/tmp/velop-import-err; then
+  echo "error: the venv is missing required modules:" >&2
+  cat /tmp/velop-import-err >&2
+  echo "Fix the install (see README) before re-running; the timer was NOT enabled." >&2
+  exit 1
 fi
+echo "  imports ok (velop_watcher, requests, confluent_kafka)"
 
 # 2. OUI manuf file (best-effort; a missing file just means NULL vendor columns)
 if [[ ! -f "${REPO_DIR}/manuf" ]]; then
