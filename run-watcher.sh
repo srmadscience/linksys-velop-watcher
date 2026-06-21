@@ -9,8 +9,12 @@
 # environment of other processes.
 set -euo pipefail
 
-if [[ $# -lt 1 || -z "${1:-}" ]]; then
-  echo "usage: $0 <VELOP_PASSWORD>" >&2
+# Router password: first arg (manual use) or the VELOP_PASSWORD environment
+# variable (e.g. systemd EnvironmentFile, which keeps it out of the process args
+# visible in `ps`). The arg wins if both are set.
+VELOP_PASSWORD="${1:-${VELOP_PASSWORD:-}}"
+if [[ -z "$VELOP_PASSWORD" ]]; then
+  echo "usage: $0 <VELOP_PASSWORD>   (or set VELOP_PASSWORD in the environment)" >&2
   exit 2
 fi
 
@@ -20,7 +24,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # --- Router / fetch ---
 export VELOP_URL="https://10.13.1.1/sysinfo.cgi"
 export VELOP_USER="admin"
-export VELOP_PASSWORD="$1"
+export VELOP_PASSWORD
 export VELOP_VERIFY_TLS="false"
 export VELOP_SINK=kafka
 
