@@ -45,6 +45,29 @@ echo "User:     $SERVICE_USER"
 echo "Interval: $INTERVAL"
 echo
 
+# 0. Preflight: confirm `python3 -m venv` (with ensurepip) actually works. On
+#    Debian / Raspberry Pi OS the venv + bundled-pip support ships in a SEPARATE
+#    `python3-venv` package; without it `python3 -m venv` dies inside ensurepip
+#    with a bare "returned non-zero exit status 1" (and the timer never gets
+#    installed). Probe with a throwaway venv created AS the service user (same
+#    conditions as step 1) and fail here with a fix hint instead of a traceback.
+echo "Checking python3 venv support..."
+PYVER="$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")' 2>/dev/null || true)"
+VENV_PROBE_DIR="$(sudo -u "$SERVICE_USER" mktemp -d)"
+if ! sudo -u "$SERVICE_USER" python3 -m venv "${VENV_PROBE_DIR}/v" >/tmp/velop-venv-probe 2>&1; then
+  rm -rf "$VENV_PROBE_DIR"
+  echo "error: 'python3 -m venv' failed -- venv/ensurepip support is missing." >&2
+  echo "On Debian / Raspberry Pi OS, install it and re-run this installer:" >&2
+  echo "    sudo apt update && sudo apt install -y python3-venv python3-pip${PYVER:+   # or python${PYVER}-venv}" >&2
+  echo "Also clear any half-built venv first: rm -rf '${REPO_DIR}/.venv'" >&2
+  echo "--- probe output ---" >&2
+  cat /tmp/velop-venv-probe >&2
+  exit 1
+fi
+rm -rf "$VENV_PROBE_DIR"
+echo "  venv support ok"
+echo
+
 # 1. virtualenv + package (as the service user, never root)
 #    PIP_INDEX_URL pins PyPI: Raspberry Pi OS adds piwheels in /etc/pip.conf,
 #    which has served empty/broken wheels for some pure-Python packages.
