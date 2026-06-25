@@ -10,7 +10,7 @@
 # Overridable via environment:
 #   SERVICE_USER=pi          who runs the watcher (default: invoking sudo user,
 #                            else the owner of the repo)
-#   VELOP_INTERVAL=5min      how often to fetch (systemd time span; default 5min)
+#   VELOP_INTERVAL=10min     how often to fetch (systemd time span; default 10min)
 #
 # What it does:
 #   1. creates the project virtualenv + installs the package (kafka extra)
@@ -30,7 +30,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "${HERE}/.." && pwd)"
 
 SERVICE_USER="${SERVICE_USER:-${SUDO_USER:-$(stat -c '%U' "${REPO_DIR}")}}"
-INTERVAL="${VELOP_INTERVAL:-5min}"
+INTERVAL="${VELOP_INTERVAL:-10min}"
 ENVDIR=/etc/velop-watcher
 ENVFILE="${ENVDIR}/velop-watcher.env"
 UNIT_DIR=/etc/systemd/system

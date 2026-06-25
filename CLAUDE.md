@@ -42,7 +42,7 @@ sudo ./systemd/install-service.sh   # install as a Pi timer-driven service (see 
 
 The watcher does **one snapshot per run** and exits, so on a Pi it runs as a
 systemd `oneshot` service triggered by a `.timer` (every `VELOP_INTERVAL`,
-default 5min) — *not* a long-lived daemon. `run-watcher.sh` takes the router
+default 10min) — *not* a long-lived daemon. `run-watcher.sh` takes the router
 password as `$1` **or** the `VELOP_PASSWORD` env var (the service supplies it via
 an `EnvironmentFile` so the secret never appears in `ps`). See `systemd/` for the
 units and installer (the installer pins PyPI over piwheels and asserts the venv
