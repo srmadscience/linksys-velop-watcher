@@ -71,5 +71,11 @@ sudo systemctl disable --now velop-watcher.timer   # pause scheduling
 - Each run produces Avro to Kafka for the `connect/` JDBC sinks (Kafka is the
   only sink). Make sure those sinks are installed (`connect/install-sinks.sh`)
   and the `velop.*` CrateDB tables exist (`crash < sql/velop_schema.sql`).
+- **Store-and-forward buffer:** if Kafka/registry are unreachable, a run buffers
+  the snapshot to `<repo>/buffer/` (`run-watcher.sh` pins `VELOP_BUFFER_DIR` to an
+  absolute path) and exits cleanly; the next timer tick replays it (and gzips the
+  sent files). The service user owns the repo, so it can write there. To put the
+  buffer elsewhere (e.g. a larger volume), edit `VELOP_BUFFER_DIR` in
+  `run-watcher.sh` and ensure the service user can write to it.
 - Re-run `install-service.sh` after a `git pull` to pick up unit or interval
   changes; it won't overwrite your secrets file.
