@@ -209,9 +209,96 @@ class KafkaSink:
             spec.table: AvroSerializer(registry, value_schema(spec))
             for spec in TABLE_SPECS
         }
+        # Same serializers keyed by topic -- the outbox replays by topic (the
+        # buffer filename is "<topic>.<ts>") and has no table handle.
+        self._serializers_by_topic = {
+            self.topic_for(spec.table): self._serializers[spec.table]
+            for spec in TABLE_SPECS
+        }
+        # Counts delivery-report failures since the last reset_delivery_errors().
+        # produce() is async, so a broker that accepts the enqueue can still fail
+        # delivery; the outbox checks this before gzipping a drained file.
+        self._delivery_errors = 0
 
     def topic_for(self, table: str) -> str:
         return f"{self._cfg.kafka_topic_prefix}{table}"
+
+    def kafka_up(self, timeout: float = 5.0) -> bool:
+        """Best-effort check that both the broker AND the registry are reachable.
+
+        The serializer needs the Schema Registry on first use (every run is a
+        fresh process), so a reachable broker alone is not enough -- both live on
+        ``badger`` and typically go down together. Returns False on any failure.
+        """
+        from confluent_kafka import KafkaException
+
+        try:
+            self._producer.list_topics(timeout=timeout)
+        except (KafkaException, RuntimeError):
+            return False
+        try:
+            import requests
+
+            base = self._cfg.schema_registry_url.rstrip("/")
+            requests.get(f"{base}/subjects", timeout=timeout).raise_for_status()
+        except Exception:
+            return False
+        return True
+
+    def reset_delivery_errors(self) -> None:
+        self._delivery_errors = 0
+
+    @property
+    def delivery_errors(self) -> int:
+        return self._delivery_errors
+
+    def _on_delivery(self, err, _msg) -> None:
+        if err is not None:
+            self._delivery_errors += 1
+
+    def messages_for(self, parsed: dict, snapshot_id: str,
+                     fetched_at: datetime) -> dict[str, list[tuple[str, dict]]]:
+        """Build ``{topic: [(key, value_dict), ...]}`` for a parsed snapshot.
+
+        Pure (no Kafka): used both to produce live and to buffer to the outbox.
+        Each record gets its stable ``id`` (see ``assign_ids``); the key is the
+        snapshot id so a snapshot's rows for a topic share a partition key.
+        """
+        out: dict[str, list[tuple[str, dict]]] = {}
+        for spec in TABLE_SPECS:
+            records = parsed.get(spec.parsed_key, []) or []
+            if not records:
+                continue
+            topic = self.topic_for(spec.table)
+            msgs = []
+            for rec in records:
+                row_id = rec.get("id") or str(uuid.uuid4())
+                msgs.append(
+                    (snapshot_id, record_value(spec, rec, row_id, snapshot_id, fetched_at)))
+            out[topic] = msgs
+        return out
+
+    def produce_one(self, topic: str, key: str, value: dict) -> None:
+        """Serialize (Avro) and enqueue a single already-built message.
+
+        ``value`` must match the topic's schema (e.g. ``fetched_at`` a datetime);
+        the outbox restores it to that shape before replaying.
+        """
+        from confluent_kafka.serialization import (
+            MessageField,
+            SerializationContext,
+        )
+
+        serializer = self._serializers_by_topic[topic]
+        self._producer.produce(
+            topic=topic,
+            key=self._key_serializer(
+                key, SerializationContext(topic, MessageField.KEY)),
+            value=serializer(
+                value, SerializationContext(topic, MessageField.VALUE)),
+            on_delivery=self._on_delivery,
+        )
+        self._producer.poll(0)
 
     def produce(self, parsed: dict, snapshot_id: str,
                 fetched_at: datetime) -> dict[str, int]:
@@ -220,31 +307,12 @@ class KafkaSink:
         Each record must already carry an ``id`` (see ``assign_ids``) so Kafka
         rows reuse the CrateDB primary keys. Returns a per-table produced count.
         """
-        from confluent_kafka.serialization import (
-            MessageField,
-            SerializationContext,
-        )
-
+        prefix = self._cfg.kafka_topic_prefix
         counts: dict[str, int] = {}
-        for spec in TABLE_SPECS:
-            records = parsed.get(spec.parsed_key, []) or []
-            topic = self.topic_for(spec.table)
-            serializer = self._serializers[spec.table]
-            n = 0
-            for rec in records:
-                row_id = rec.get("id") or str(uuid.uuid4())
-                value = record_value(spec, rec, row_id, snapshot_id, fetched_at)
-                self._producer.produce(
-                    topic=topic,
-                    key=self._key_serializer(
-                        snapshot_id, SerializationContext(topic, MessageField.KEY)),
-                    value=serializer(
-                        value, SerializationContext(topic, MessageField.VALUE)),
-                )
-                self._producer.poll(0)
-                n += 1
-            if n:
-                counts[spec.table] = n
+        for topic, msgs in self.messages_for(parsed, snapshot_id, fetched_at).items():
+            for key, value in msgs:
+                self.produce_one(topic, key, value)
+            counts[topic[len(prefix):]] = len(msgs)
         return counts
 
     def flush(self, timeout: float = 30.0) -> int:

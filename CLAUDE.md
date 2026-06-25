@@ -107,6 +107,25 @@ editable install or with `src` on `PYTHONPATH`):
   `PUT /connectors/<name>/config`), `connect/restart-sinks.sh` (restart
   connectors+tasks; FAILED-only or `--all`), and `connect/status-sinks.sh` — all
   honour `CONNECT_URL` (default `http://badger:8083`) and need `curl` + `jq`.
+  `KafkaSink` also exposes the store-and-forward seams the outbox uses:
+  `kafka_up()` (probes BOTH broker via `list_topics` and registry via
+  `GET /subjects` — both live on `badger` and go down together),
+  `messages_for()` (builds `{topic: [(key, value_dict)]}`, pure), `produce_one()`
+  (serialize+enqueue one), and a delivery-error counter.
+- `outbox.py` — **store-and-forward buffer** for when Kafka/registry are down. It
+  buffers the *logical* message `(key, value_dict)` as JSON Lines, NOT the Avro
+  bytes: serializing needs the registry on first use, and every run is a cold
+  oneshot process, so we defer serialization to drain time. One file per topic
+  per buffered run, named `<topic>.<yyyymmdd_HHMMSS>` (UTC; a `-N` suffix only on
+  a same-second collision); `datetime` survives via a `{"__dt_ms__": epoch}`
+  marker. `buffer_snapshot()` writes a snapshot; `drain()` replays each pending
+  file, flushes, and **gzips it only on success** (`...gz`, kept as archive,
+  skipped on scan) — a failure leaves the file pending and stops the drain.
+  `drain()` is bounded by `time_limit` seconds (`VELOP_DRAIN_TIME_LIMIT`, default
+  120): the backlog is checked between files and the rest is left for the next
+  run, so a oneshot tick is never blocked indefinitely (`<=0` disables). No
+  `confluent_kafka` import here. `velop-drain` (→ `drain_main`) is a standalone
+  flush command; `VELOP_BUFFER_DIR` (default `buffer/`, gitignored) sets the dir.
 - `cli.py` — wires fetch → parse → enrich → produce for a single run. The JNAP
   name fetch is **best-effort**: a network/auth failure logs a note and leaves
   `friendly_name` NULL rather than losing the snapshot. After the master dump it
@@ -118,9 +137,11 @@ editable install or with `src` on `PYTHONPATH`):
 Data flow: `cli.main()` → `fetch_sysinfo(cfg)` (master) → `parse.*` →
 per-node `fetch_sysinfo_url(...)` + `parse_radio_stats` + `tag_radio_source`
 (satellites) → `enrich_friendly_names(...)` (JNAP) → `enrich(...)` (OUI) →
-`assign_ids(...)` → `KafkaSink.produce(...)` (Confluent-Avro, one topic per
-table). The Connect JDBC sinks in `connect/` carry the records into the
-`velop.*` CrateDB tables.
+`assign_ids(...)` → probe `KafkaSink.kafka_up()`: if up, `outbox.drain(...)` any
+buffered snapshots then `KafkaSink.produce(...)`; if down, `outbox.buffer_snapshot(...)`
+to disk and exit 0 (the timer's next run drains it). Produce is Confluent-Avro,
+one topic per table. The Connect JDBC sinks in `connect/` carry the records into
+the `velop.*` CrateDB tables.
 
 ## Key facts and gotchas
 

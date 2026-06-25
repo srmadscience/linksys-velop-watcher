@@ -219,3 +219,7 @@ __marimo__/
 
 # Downloaded Wireshark OUI/vendor file (fetched by velop-oui-update)
 manuf
+
+# Store-and-forward outbox: snapshots buffered while Kafka was down (+ gzipped
+# archives after replay). Default VELOP_BUFFER_DIR.
+buffer/

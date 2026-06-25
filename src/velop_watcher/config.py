@@ -48,6 +48,16 @@ class Config:
     kafka_topic_prefix: str = "velop."
     kafka_client_id: str = "velop-watcher"
 
+    # Store-and-forward outbox: when Kafka/registry are unreachable a snapshot's
+    # messages are buffered as files under buffer_dir (one file per topic, named
+    # "<topic>.<yyyymmdd_HHMMSS>") and replayed on a later run once Kafka is back.
+    # kafka_probe_timeout bounds the up/down reachability check (seconds);
+    # drain_time_limit caps how long a run spends replaying+gzipping the backlog
+    # (seconds, between files) so a oneshot run is never blocked indefinitely.
+    buffer_dir: str = "buffer"
+    kafka_probe_timeout: float = 5.0
+    drain_time_limit: float = 120.0
+
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> "Config":
         env = os.environ if env is None else env
@@ -68,4 +78,9 @@ class Config:
             schema_registry_url=env.get("SCHEMA_REGISTRY_URL", d.schema_registry_url),
             kafka_topic_prefix=env.get("KAFKA_TOPIC_PREFIX", d.kafka_topic_prefix),
             kafka_client_id=env.get("KAFKA_CLIENT_ID", d.kafka_client_id),
+            buffer_dir=env.get("VELOP_BUFFER_DIR", d.buffer_dir),
+            kafka_probe_timeout=float(
+                env.get("VELOP_KAFKA_PROBE_TIMEOUT", d.kafka_probe_timeout)),
+            drain_time_limit=float(
+                env.get("VELOP_DRAIN_TIME_LIMIT", d.drain_time_limit)),
         )
