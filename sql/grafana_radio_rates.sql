@@ -98,6 +98,19 @@ WHERE (cur.tx_bytes - prv.tx_bytes) >= 0;   -- drop reboot intervals (counter re
 -- ${__from}/${__to} are Grafana global vars; they render as epoch-ms, matching
 -- t_ms exactly (integer vs integer -- no timezone interpretation). Keep these
 -- flat: no CTEs, joins, or window functions in what Grafana sends.
+--
+-- PANEL DISPLAY (two settings that otherwise mislead -- the data is correct):
+--   * UNIT: tx_mbps/rx_mbps are megaBITS per second. Set the panel unit to
+--     bits/sec (Mbit/s), NOT bytes/MiB -- a bytes unit renders "2 Mbit/s" as
+--     "2 MiB" and silently misreports throughput by a factor of 8.
+--   * INTERPOLATION: use linear or step, not "smooth", and avoid the area fill.
+--     radio_stats counters are cumulative and a radio is idle most of the time,
+--     so an idle interval has delta=0 -> rate exactly 0. Smooth interpolation
+--     turns a real [burst, 0, burst, 0] sequence into a clean sine wave that
+--     looks like a periodic artifact but is just bursty traffic between idles.
+--   * A flat single line with the other nodes at 0 is normal: only the node
+--     actually transmitting on that band shows a rate; the rest are idle, not
+--     missing.
 
 -- TX throughput per radio (Time series panel; one value column + a label):
 SELECT fetched_at AS "time", metric, tx_mbps
