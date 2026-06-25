@@ -8,7 +8,7 @@ after the Pi has been off (`Persistent=true`).
 | File | Purpose |
 |---|---|
 | `velop-watcher.service` | one-shot unit that runs `../run-watcher.sh` (template) |
-| `velop-watcher.timer` | schedule — every `VELOP_INTERVAL` (default 5min) (template) |
+| `velop-watcher.timer` | schedule — every `VELOP_INTERVAL` (default 10min) (template) |
 | `velop-watcher.env.example` | secrets template → `/etc/velop-watcher/velop-watcher.env` |
 | `install-service.sh` | sets up venv, secrets, units; enables the timer |
 | `uninstall-service.sh` | removes the units |
