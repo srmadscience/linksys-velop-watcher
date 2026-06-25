@@ -34,6 +34,7 @@ from .parse import (
 )
 from .oui import VendorResolver, enrich, load_manuf
 from .kafka_sink import KafkaSink, assign_ids
+from .outbox import Outbox, buffer_snapshot, drain
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -131,6 +132,24 @@ def main(argv: list[str] | None = None) -> int:
         print("error: confluent-kafka is not installed. pip install -e .",
               file=sys.stderr)
         return 2
+
+    # Store-and-forward: probe Kafka once. If it's up, first replay any snapshots
+    # buffered while it was down, then produce this one. If it's down, buffer this
+    # snapshot to disk (one file per topic) and exit cleanly so the timer's next
+    # run can drain it. The Pi runs oneshot per timer tick, so this is the retry.
+    outbox = Outbox(cfg.buffer_dir)
+    if not sink.kafka_up(cfg.kafka_probe_timeout):
+        buffered = buffer_snapshot(sink, outbox, parsed, snapshot_id, fetched_at)
+        bsummary = ", ".join(f"{n} {t}" for t, n in buffered.items()) or "0 records"
+        print(f"Kafka {cfg.kafka_bootstrap} unreachable; buffered snapshot "
+              f"{snapshot_id} to {cfg.buffer_dir} ({bsummary})", file=sys.stderr)
+        return 0
+
+    sent = drain(sink, outbox, time_limit=cfg.drain_time_limit)
+    if sent:
+        print(f"Drained {len(sent)} buffered file(s) ({sum(sent.values())} "
+              f"messages) before this snapshot", file=sys.stderr)
+
     produced = sink.produce(parsed, snapshot_id, fetched_at)
     undelivered = sink.flush()
     psummary = ", ".join(f"{n} {t}" for t, n in produced.items()) or "0 records"

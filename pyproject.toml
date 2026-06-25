@@ -16,6 +16,7 @@ dev = ["pytest>=8.0"]
 [project.scripts]
 velop-watcher = "velop_watcher.cli:main"
 velop-oui-update = "velop_watcher.oui:update_main"
+velop-drain = "velop_watcher.outbox:drain_main"
 
 [build-system]
 requires = ["setuptools>=68"]
