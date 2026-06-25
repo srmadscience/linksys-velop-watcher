@@ -30,7 +30,9 @@ from datetime import datetime
 
 
 # Column kinds -> Avro (non-null branch of a nullable union). "json" covers the
-# CrateDB OBJECT/ARRAY columns, sent as a JSON string.
+# CrateDB OBJECT(IGNORED) columns, sent as a JSON string. "array" covers the
+# CrateDB ARRAY(TEXT) columns, sent as a real Avro array (a JSON string lands as
+# TEXT and CrateDB rejects TEXT -> ARRAY, so those rows would be dropped).
 _KIND_TO_AVRO = {
     "str": "string",
     "int": "int",
@@ -38,6 +40,7 @@ _KIND_TO_AVRO = {
     "double": "double",
     "bool": "boolean",
     "json": "string",
+    "array": {"type": "array", "items": ["null", "string"]},
 }
 
 
@@ -48,7 +51,8 @@ class TableSpec:
     in the ``parsed`` dict; ``table`` is the CrateDB table (also the topic
     suffix); ``columns`` is an ordered ``[(name, kind)]`` list mirroring the
     record dict keys (kinds in ``_KIND_TO_AVRO``; ``json`` columns are JSON-
-    encoded). ``id``/``snapshot_id``/``fetched_at`` are added to every schema.
+    encoded, ``array`` columns pass their list through as an Avro array).
+    ``id``/``snapshot_id``/``fetched_at`` are added to every schema.
     """
 
     def __init__(self, parsed_key: str, table: str, columns: list[tuple[str, str]]):
@@ -59,6 +63,9 @@ class TableSpec:
     def json_columns(self) -> set[str]:
         return {name for name, kind in self.columns if kind == "json"}
 
+    def array_columns(self) -> set[str]:
+        return {name for name, kind in self.columns if kind == "array"}
+
 
 # The 11 structured tables produced to Kafka (the raw_text sysinfo dumps are
 # intentionally excluded). Column order mirrors schema.TABLES (asserted in tests).
@@ -67,7 +74,7 @@ TABLE_SPECS: list[TableSpec] = [
         ("uuid", "str"), ("mac", "str"), ("mac_vendor", "str"), ("ip", "str"),
         ("conn", "str"), ("status", "str"), ("name", "str"), ("friendly_name", "str"),
         ("fw_ver", "str"), ("role", "str"),
-        ("extra_macs", "json"), ("extra_macs_vendor", "json"),
+        ("extra_macs", "array"), ("extra_macs_vendor", "array"),
     ]),
     TableSpec("wlan_clients", "wlan_client", [
         ("client_mac", "str"), ("client_mac_vendor", "str"), ("stat", "str"),
@@ -161,16 +168,20 @@ def record_value(spec: TableSpec, rec: dict, row_id: str, snapshot_id: str,
                  fetched_at: datetime) -> dict:
     """Build the Avro value dict for one record (pure; no Kafka).
 
-    ``json`` columns are JSON-encoded (or null); other columns pass through by
-    key from the parse.py record. ``fetched_at`` stays a datetime for the Avro
-    ``timestamp-millis`` logical type.
+    ``json`` columns are JSON-encoded (or null); ``array`` columns pass their
+    list through as an Avro array (or null) so the JDBC sink lands a real
+    ARRAY(TEXT); other columns pass through by key from the parse.py record.
+    ``fetched_at`` stays a datetime for the Avro ``timestamp-millis`` logical type.
     """
     json_cols = spec.json_columns()
+    array_cols = spec.array_columns()
     value = {"id": row_id, "snapshot_id": snapshot_id, "fetched_at": fetched_at}
     for name, _kind in spec.columns:
         raw = rec.get(name)
         if name in json_cols:
             value[name] = None if raw is None else json.dumps(raw)
+        elif name in array_cols:
+            value[name] = None if raw is None else list(raw)
         else:
             value[name] = raw
     return value
