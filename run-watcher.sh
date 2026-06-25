@@ -34,6 +34,12 @@ export VELOP_VERIFY_TLS="false"
 export KAFKA_BOOTSTRAP="badger:9092"
 export SCHEMA_REGISTRY_URL="http://badger:8081"
 
+# --- Store-and-forward buffer ---
+# When Kafka/registry are down a snapshot is buffered here and replayed on a
+# later run. Pin it to an absolute path (anchored to the script dir, like the
+# OUI file) so it never depends on the process working directory.
+export VELOP_BUFFER_DIR="${SCRIPT_DIR}/buffer"
+
 # --- OUI / vendor resolution ---
 export OUI_MANUF_PATH="${SCRIPT_DIR}/manuf"
 export OUI_MANUF_URL="https://www.wireshark.org/download/automated/data/manuf"
