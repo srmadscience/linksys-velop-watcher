@@ -95,8 +95,11 @@ editable install or with `src` on `PYTHONPATH`):
   Kafka topic (`velop.<table>`) as Confluent-Avro, mirroring hcpy's
   `hc2kafka.py`. `TABLE_SPECS` declares one topic/Avro schema per table (column
   order mirrors `schema.TABLES`; a `test_kafka_sink` test asserts no drift).
-  `OBJECT`/`ARRAY` columns are sent as JSON strings; `fetched_at` is Avro
-  `timestamp-millis`. `assign_ids` stamps each record's `id` up front (the
+  `OBJECT(IGNORED)` columns are sent as JSON strings, but `ARRAY(TEXT)` columns
+  (only `device.extra_macs`/`extra_macs_vendor`) are sent as real Avro arrays
+  (kind `array`) — a JSON string lands as TEXT and CrateDB rejects TEXT→ARRAY, so
+  with the sink's `errors.tolerance=all` every device row was silently dropped.
+  `fetched_at` is Avro `timestamp-millis`. `assign_ids` stamps each record's `id` up front (the
   CrateDB primary key) so a Connect sink upsert is stable on re-delivery.
   `confluent_kafka` is imported lazily inside `KafkaSink`. The matching JDBC
   sink connectors live in `connect/` (see `connect/README.md`), with helper
@@ -141,9 +144,12 @@ table). The Connect JDBC sinks in `connect/` carry the records into the
   pg-wire (5432). Records carry an `id` (`assign_ids`) and sinks `upsert` on it,
   so Kafka re-delivery never duplicates rows. Needs `confluent-kafka` (a core
   dependency now: `pip install -e .`).
-  Two caveats: OBJECT/ARRAY columns are produced as JSON strings (verify the JDBC
-  sink lands JSON→`OBJECT`, esp. `radio_stats.stats` which the Grafana views
-  read); and `connect/*.json` carry `scott`/`tiger` CrateDB creds (matching hcpy)
+  Two caveats: `OBJECT(IGNORED)` columns are produced as JSON strings (verify the
+  JDBC sink lands JSON→`OBJECT`, esp. `radio_stats.stats` which the Grafana views
+  read) while `ARRAY(TEXT)` columns are produced as real Avro arrays (kind
+  `array`) so they land natively — sending those as JSON strings instead made the
+  JDBC sink drop every `device` row (TEXT→ARRAY is rejected, and
+  `errors.tolerance=all` swallows it); and `connect/*.json` carry `scott`/`tiger` CrateDB creds (matching hcpy)
   — externalize via a Connect `ConfigProvider` if that matters.
 - **Radio counters are per-node; a radio's identity is (node, band, radio).**
   `radio_stats` holds `wifi0/1/2` from every mesh node — names collide across
