@@ -170,8 +170,9 @@ the `velop.*` CrateDB tables.
   read) while `ARRAY(TEXT)` columns are produced as real Avro arrays (kind
   `array`) so they land natively — sending those as JSON strings instead made the
   JDBC sink drop every `device` row (TEXT→ARRAY is rejected, and
-  `errors.tolerance=all` swallows it); and `connect/*.json` carry `scott`/`tiger` CrateDB creds (matching hcpy)
-  — externalize via a Connect `ConfigProvider` if that matters.
+  `errors.tolerance=all` swallows it); and `connect/*.json` carry
+  `CHANGEME_CRATE_USER`/`CHANGEME_CRATE_PASSWORD` placeholder CrateDB creds — set
+  them before registering, or externalize via a Connect `ConfigProvider`.
 - **Radio counters are per-node; a radio's identity is (node, band, radio).**
   `radio_stats` holds `wifi0/1/2` from every mesh node — names collide across
   nodes and bands differ by model (master MX42 vs satellite WHW03: master
