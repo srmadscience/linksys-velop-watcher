@@ -223,3 +223,6 @@ manuf
 # Store-and-forward outbox: snapshots buffered while Kafka was down (+ gzipped
 # archives after replay). Default VELOP_BUFFER_DIR.
 buffer/
+
+# macOS
+.DS_Store
