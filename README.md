@@ -38,8 +38,6 @@ rather than trusting connection close.
 
 **More info**
 
-- Linksys community — [Sysinfo.cgi login info](https://community.linksys.com/t5/Velop-Whole-Home-Wi-Fi/Sysinfo-cgi-login-info/td-p/1399934) (finding a node's IP and logging in)
-- Linksys community — [How accurate is sysinfo.cgi](https://community.linksys.com/t5/Velop-Whole-Home-Wi-Fi/How-accurate-is-sysinfo-cgi/td-p/1412271)
 - SNBForums — [using `bh_report` to tune node placement](https://www.snbforums.com/threads/suggestions-on-how-to-better-setup-this-network.65534/)
 - GitHub gist — [following the Velop log printed by `sysinfo.cgi`](https://gist.github.com/core2duoe6420/3361c0ed7d9a654bd056f3c953d10767)
 
