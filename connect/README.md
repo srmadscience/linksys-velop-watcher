@@ -69,10 +69,11 @@ All three scripts honour `CONNECT_URL` and need `curl` + `jq`.
 
 ## Caveats
 
-- **Credentials**: `connection.user`/`connection.password` are `scott`/`tiger`
-  here to match the existing hcpy sinks against the same CrateDB. If you want to
-  keep secrets out of the repo, swap them for a Connect `ConfigProvider`
-  (e.g. `FileConfigProvider`) and reference an external file.
+- **Credentials**: `connection.user`/`connection.password` ship as
+  `CHANGEME_CRATE_USER`/`CHANGEME_CRATE_PASSWORD` placeholders — set them to your
+  CrateDB user/password before registering the connectors, or (better) keep
+  secrets out of the repo entirely by swapping them for a Connect
+  `ConfigProvider` (e.g. `FileConfigProvider`) that references an external file.
 - **OBJECT/ARRAY columns** (`node.devinfo`, `radio_stats.stats`,
   `radio_config.settings`, `lldp_neighbor.capabilities`, `device.extra_macs*`)
   are produced as **JSON strings**. Confirm the JDBC sink lands a JSON string

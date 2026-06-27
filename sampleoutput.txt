@@ -42,7 +42,7 @@ fdtcontroladdr=4a97b4b0
 flash_type=2
 flashimg=tftpboot $loadaddr $image && nand erase $prikern $imgsize && nand write $loadaddr $prikern $filesize
 flashimg2=tftpboot $loadaddr $image && nand erase $altkern $imgsize && nand write $loadaddr $altkern $filesize
-image=chiron.img
+image=velop.img
 imgsize=9600000
 ipaddr=192.168.1.1
 kernsize=600000
@@ -196,7 +196,7 @@ sysevent get wan-status:
 started
 
 sysevent get ipv4_wan_ipaddr:
-109.255.78.2
+203.0.113.2
 
 sysevent get current_ipv6_wan_state:
 up
@@ -259,206 +259,206 @@ diagnostics::scheduled_reboot_enabled=1
 
 tail -200 /var/log/messages:
 
-Jun 18 14:58:04 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567191 ]
-Jun 18 14:58:04 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567192 ]
-Jun 18 14:58:05 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47567200 ]
-Jun 18 14:58:05 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.86  [ 47567200 ]
-Jun 18 14:58:05 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47567260 ]
-Jun 18 14:58:05 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.15  [ 47567260 ]
-Jun 18 14:58:05 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47567260 ]
-Jun 18 14:58:05 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.15  [ 47567260 ]
-Jun 18 14:58:05 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567293 ]
-Jun 18 14:58:06 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567294 ]
-Jun 18 14:58:06 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567294 ]
-Jun 18 14:58:06 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567295 ]
-Jun 18 14:58:06 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47567308 ]
-Jun 18 14:58:06 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.8  [ 47567308 ]
-Jun 18 14:58:06 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47567308 ]
-Jun 18 14:58:06 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.8  [ 47567308 ]
-Jun 18 14:58:07 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567396 ]
-Jun 18 14:58:07 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567397 ]
-Jun 18 14:58:07 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567398 ]
-Jun 18 14:58:07 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567398 ]
-Jun 18 14:58:08 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567500 ]
-Jun 18 14:58:08 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567500 ]
-Jun 18 14:58:08 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567501 ]
-Jun 18 14:58:08 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567502 ]
-Jun 18 14:58:09 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567603 ]
-Jun 18 14:58:09 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567604 ]
-Jun 18 14:58:09 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567604 ]
-Jun 18 14:58:09 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567605 ]
-Jun 18 14:58:10 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47567696 ]
-Jun 18 14:58:10 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.137  [ 47567696 ]
-Jun 18 14:58:10 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47567696 ]
-Jun 18 14:58:10 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.19  [ 47567696 ]
-Jun 18 14:58:10 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47567696 ]
-Jun 18 14:58:10 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.10  [ 47567696 ]
-Jun 18 14:58:10 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47567697 ]
-Jun 18 14:58:10 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.223  [ 47567697 ]
-Jun 18 14:58:10 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47567697 ]
-Jun 18 14:58:10 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.39  [ 47567697 ]
-Jun 18 14:58:10 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47567701 ]
-Jun 18 14:58:10 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.86  [ 47567701 ]
-Jun 18 14:58:10 chiron local7.notice UTOPIA: service.devidentd ARP: reset counter for IP 10.13.1.15  [ 47567701 ]
-Jun 18 14:58:10 chiron local7.notice UTOPIA: service.devidentd ARP agent: report device change state for IP 10.13.1.15 MAC 38:a6:ce:db:64:1c  [ 47567701 ]
-Jun 18 14:58:10 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47567701 ]
-Jun 18 14:58:10 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.15  [ 47567701 ]
-Jun 18 14:58:10 chiron local7.notice UTOPIA: service.devidentd ARP: reset counter for IP 10.13.1.67  [ 47567702 ]
-Jun 18 14:58:10 chiron local7.notice UTOPIA: service.devidentd ARP agent: report device change state for IP 10.13.1.67 MAC 00:fc:14:5c:c3:c7  [ 47567702 ]
-Jun 18 14:58:10 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47567702 ]
-Jun 18 14:58:10 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.67  [ 47567702 ]
-Jun 18 14:58:10 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47567704 ]
-Jun 18 14:58:10 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.86  [ 47567704 ]
-Jun 18 14:58:10 chiron local7.notice UTOPIA: service.devidentd ARP: reset counter for IP 10.13.1.86  [ 47567704 ]
-Jun 18 14:58:10 chiron local7.notice UTOPIA: service.devidentd ARP agent: report device change state for IP 10.13.1.86 MAC c4:38:75:72:e6:42  [ 47567704 ]
-Jun 18 14:58:10 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47567704 ]
-Jun 18 14:58:10 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.86  [ 47567704 ]
-Jun 18 14:58:10 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567706 ]
-Jun 18 14:58:10 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567707 ]
-Jun 18 14:58:10 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567708 ]
-Jun 18 14:58:10 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567708 ]
-Jun 18 14:58:10 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47567728 ]
-Jun 18 14:58:10 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.30  [ 47567728 ]
-Jun 18 14:58:11 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567810 ]
-Jun 18 14:58:11 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567810 ]
-Jun 18 14:58:11 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567811 ]
-Jun 18 14:58:11 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567812 ]
-Jun 18 14:58:12 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567913 ]
-Jun 18 14:58:12 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567914 ]
-Jun 18 14:58:12 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567914 ]
-Jun 18 14:58:12 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567915 ]
-Jun 18 14:58:13 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568017 ]
-Jun 18 14:58:13 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568017 ]
-Jun 18 14:58:13 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568018 ]
-Jun 18 14:58:13 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568018 ]
-Jun 18 14:58:14 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568120 ]
-Jun 18 14:58:14 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568121 ]
-Jun 18 14:58:14 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568121 ]
-Jun 18 14:58:14 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568122 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd ARP agent: update ARP table  [ 47568202 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568202 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.30  [ 47568202 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568203 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.142  [ 47568203 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568203 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.9  [ 47568203 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568204 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.19  [ 47568204 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568204 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.200  [ 47568204 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568204 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.6  [ 47568204 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568205 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.12  [ 47568205 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568205 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.10  [ 47568205 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568206 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.9  [ 47568206 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd ARP: reset counter for IP 10.13.1.9  [ 47568206 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd ARP agent: report device change state for IP 10.13.1.9 MAC c4:41:1e:ec:42:75  [ 47568206 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568206 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.9  [ 47568206 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568207 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.19  [ 47568207 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568207 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.19  [ 47568207 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568207 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.200  [ 47568207 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568208 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.6  [ 47568208 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568208 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.6  [ 47568208 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568209 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.12  [ 47568209 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568209 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.200  [ 47568209 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568223 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568224 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.21  [ 47568224 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568224 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568224 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.14  [ 47568224 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568224 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.165  [ 47568224 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568225 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568225 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568229 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.30  [ 47568229 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568229 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.30  [ 47568229 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd ARP: reset counter for IP 10.13.1.30  [ 47568229 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd ARP agent: report device change state for IP 10.13.1.30 MAC 1c:1b:0d:76:ef:1f  [ 47568229 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568229 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.30  [ 47568229 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568240 ]
-Jun 18 14:58:15 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.142  [ 47568240 ]
-Jun 18 14:58:16 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568327 ]
-Jun 18 14:58:16 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568327 ]
-Jun 18 14:58:16 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568328 ]
-Jun 18 14:58:16 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568329 ]
-Jun 18 14:58:16 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568384 ]
-Jun 18 14:58:16 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.153  [ 47568384 ]
-Jun 18 14:58:16 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568384 ]
-Jun 18 14:58:16 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.67  [ 47568384 ]
-Jun 18 14:58:16 chiron daemon.err lighttpd[5966]: (connections.c.1550) SSL: 1 -1 error:140E0197:lib(20):func(224):reason(407)
-Jun 18 14:58:16 chiron daemon.err lighttpd[5966]: (connections.c.1550) SSL: 1 -1 error:140E0197:lib(20):func(224):reason(407)
-Jun 18 14:58:17 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568430 ]
-Jun 18 14:58:17 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568431 ]
-Jun 18 14:58:17 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568431 ]
-Jun 18 14:58:17 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568432 ]
-Jun 18 14:58:18 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568533 ]
-Jun 18 14:58:18 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568534 ]
-Jun 18 14:58:18 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568535 ]
-Jun 18 14:58:18 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568535 ]
-Jun 18 14:58:18 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568544 ]
-Jun 18 14:58:18 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.10  [ 47568544 ]
-Jun 18 14:58:19 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568637 ]
-Jun 18 14:58:19 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568637 ]
-Jun 18 14:58:19 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568638 ]
-Jun 18 14:58:19 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568639 ]
-Jun 18 14:58:19 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568656 ]
-Jun 18 14:58:19 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.149  [ 47568656 ]
-Jun 18 14:58:20 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568726 ]
-Jun 18 14:58:20 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.165  [ 47568726 ]
-Jun 18 14:58:20 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568726 ]
-Jun 18 14:58:20 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.165  [ 47568726 ]
-Jun 18 14:58:20 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568733 ]
-Jun 18 14:58:20 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.119  [ 47568733 ]
-Jun 18 14:58:20 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568740 ]
-Jun 18 14:58:20 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568741 ]
-Jun 18 14:58:20 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568741 ]
-Jun 18 14:58:20 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.119  [ 47568741 ]
-Jun 18 14:58:20 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568741 ]
-Jun 18 14:58:20 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568742 ]
-Jun 18 14:58:21 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568800 ]
-Jun 18 14:58:21 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.51  [ 47568800 ]
-Jun 18 14:58:21 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568808 ]
-Jun 18 14:58:21 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.113  [ 47568808 ]
-Jun 18 14:58:21 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568843 ]
-Jun 18 14:58:21 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568844 ]
-Jun 18 14:58:21 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568845 ]
-Jun 18 14:58:21 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568845 ]
-Jun 18 14:58:21 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568885 ]
-Jun 18 14:58:21 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.153  [ 47568885 ]
-Jun 18 14:58:21 chiron local7.notice UTOPIA: service.devidentd ARP: reset counter for IP 10.13.1.165  [ 47568886 ]
-Jun 18 14:58:21 chiron local7.notice UTOPIA: service.devidentd ARP agent: report device change state for IP 10.13.1.165 MAC 00:0c:29:9f:06:a1  [ 47568886 ]
-Jun 18 14:58:21 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568886 ]
-Jun 18 14:58:21 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.165  [ 47568886 ]
-Jun 18 14:58:22 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568900 ]
-Jun 18 14:58:22 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.14  [ 47568900 ]
-Jun 18 14:58:22 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568900 ]
-Jun 18 14:58:22 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.14  [ 47568900 ]
-Jun 18 14:58:22 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568947 ]
-Jun 18 14:58:22 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568947 ]
-Jun 18 14:58:22 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568948 ]
-Jun 18 14:58:22 chiron local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568949 ]
-Jun 18 14:58:22 chiron daemon.err lighttpd[5966]: (connections.c.1550) SSL: 1 -1 error:140E0197:lib(20):func(224):reason(407)
-Jun 18 14:58:22 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568961 ]
-Jun 18 14:58:22 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.153  [ 47568961 ]
-Jun 18 14:58:22 chiron local7.notice UTOPIA: service.devidentd ARP: reset counter for IP 10.13.1.153  [ 47568962 ]
-Jun 18 14:58:22 chiron local7.notice UTOPIA: service.devidentd ARP agent: report device change state for IP 10.13.1.153 MAC 5e:6b:e8:d5:84:dd  [ 47568962 ]
-Jun 18 14:58:22 chiron local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568962 ]
-Jun 18 14:58:22 chiron local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.153  [ 47568962 ]
+Jun 18 14:58:04 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567191 ]
+Jun 18 14:58:04 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567192 ]
+Jun 18 14:58:05 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47567200 ]
+Jun 18 14:58:05 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.86  [ 47567200 ]
+Jun 18 14:58:05 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47567260 ]
+Jun 18 14:58:05 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.15  [ 47567260 ]
+Jun 18 14:58:05 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47567260 ]
+Jun 18 14:58:05 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.15  [ 47567260 ]
+Jun 18 14:58:05 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567293 ]
+Jun 18 14:58:06 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567294 ]
+Jun 18 14:58:06 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567294 ]
+Jun 18 14:58:06 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567295 ]
+Jun 18 14:58:06 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47567308 ]
+Jun 18 14:58:06 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.8  [ 47567308 ]
+Jun 18 14:58:06 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47567308 ]
+Jun 18 14:58:06 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.8  [ 47567308 ]
+Jun 18 14:58:07 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567396 ]
+Jun 18 14:58:07 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567397 ]
+Jun 18 14:58:07 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567398 ]
+Jun 18 14:58:07 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567398 ]
+Jun 18 14:58:08 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567500 ]
+Jun 18 14:58:08 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567500 ]
+Jun 18 14:58:08 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567501 ]
+Jun 18 14:58:08 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567502 ]
+Jun 18 14:58:09 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567603 ]
+Jun 18 14:58:09 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567604 ]
+Jun 18 14:58:09 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567604 ]
+Jun 18 14:58:09 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567605 ]
+Jun 18 14:58:10 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47567696 ]
+Jun 18 14:58:10 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.137  [ 47567696 ]
+Jun 18 14:58:10 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47567696 ]
+Jun 18 14:58:10 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.19  [ 47567696 ]
+Jun 18 14:58:10 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47567696 ]
+Jun 18 14:58:10 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.10  [ 47567696 ]
+Jun 18 14:58:10 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47567697 ]
+Jun 18 14:58:10 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.223  [ 47567697 ]
+Jun 18 14:58:10 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47567697 ]
+Jun 18 14:58:10 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.39  [ 47567697 ]
+Jun 18 14:58:10 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47567701 ]
+Jun 18 14:58:10 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.86  [ 47567701 ]
+Jun 18 14:58:10 velop local7.notice UTOPIA: service.devidentd ARP: reset counter for IP 10.13.1.15  [ 47567701 ]
+Jun 18 14:58:10 velop local7.notice UTOPIA: service.devidentd ARP agent: report device change state for IP 10.13.1.15 MAC 38:a6:ce:db:64:1c  [ 47567701 ]
+Jun 18 14:58:10 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47567701 ]
+Jun 18 14:58:10 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.15  [ 47567701 ]
+Jun 18 14:58:10 velop local7.notice UTOPIA: service.devidentd ARP: reset counter for IP 10.13.1.67  [ 47567702 ]
+Jun 18 14:58:10 velop local7.notice UTOPIA: service.devidentd ARP agent: report device change state for IP 10.13.1.67 MAC 00:fc:14:5c:c3:c7  [ 47567702 ]
+Jun 18 14:58:10 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47567702 ]
+Jun 18 14:58:10 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.67  [ 47567702 ]
+Jun 18 14:58:10 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47567704 ]
+Jun 18 14:58:10 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.86  [ 47567704 ]
+Jun 18 14:58:10 velop local7.notice UTOPIA: service.devidentd ARP: reset counter for IP 10.13.1.86  [ 47567704 ]
+Jun 18 14:58:10 velop local7.notice UTOPIA: service.devidentd ARP agent: report device change state for IP 10.13.1.86 MAC c4:38:75:72:e6:42  [ 47567704 ]
+Jun 18 14:58:10 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47567704 ]
+Jun 18 14:58:10 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.86  [ 47567704 ]
+Jun 18 14:58:10 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567706 ]
+Jun 18 14:58:10 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567707 ]
+Jun 18 14:58:10 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567708 ]
+Jun 18 14:58:10 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567708 ]
+Jun 18 14:58:10 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47567728 ]
+Jun 18 14:58:10 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.30  [ 47567728 ]
+Jun 18 14:58:11 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567810 ]
+Jun 18 14:58:11 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567810 ]
+Jun 18 14:58:11 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567811 ]
+Jun 18 14:58:11 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567812 ]
+Jun 18 14:58:12 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567913 ]
+Jun 18 14:58:12 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567914 ]
+Jun 18 14:58:12 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567914 ]
+Jun 18 14:58:12 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47567915 ]
+Jun 18 14:58:13 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568017 ]
+Jun 18 14:58:13 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568017 ]
+Jun 18 14:58:13 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568018 ]
+Jun 18 14:58:13 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568018 ]
+Jun 18 14:58:14 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568120 ]
+Jun 18 14:58:14 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568121 ]
+Jun 18 14:58:14 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568121 ]
+Jun 18 14:58:14 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568122 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd ARP agent: update ARP table  [ 47568202 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568202 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.30  [ 47568202 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568203 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.142  [ 47568203 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568203 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.9  [ 47568203 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568204 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.19  [ 47568204 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568204 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.200  [ 47568204 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568204 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.6  [ 47568204 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568205 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.12  [ 47568205 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568205 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.10  [ 47568205 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568206 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.9  [ 47568206 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd ARP: reset counter for IP 10.13.1.9  [ 47568206 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd ARP agent: report device change state for IP 10.13.1.9 MAC c4:41:1e:ec:42:75  [ 47568206 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568206 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.9  [ 47568206 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568207 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.19  [ 47568207 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568207 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.19  [ 47568207 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568207 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.200  [ 47568207 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568208 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.6  [ 47568208 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568208 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.6  [ 47568208 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568209 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.12  [ 47568209 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568209 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.200  [ 47568209 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568223 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568224 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.21  [ 47568224 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568224 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568224 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.14  [ 47568224 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568224 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.165  [ 47568224 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568225 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568225 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568229 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.30  [ 47568229 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568229 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.30  [ 47568229 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd ARP: reset counter for IP 10.13.1.30  [ 47568229 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd ARP agent: report device change state for IP 10.13.1.30 MAC 1c:1b:0d:76:ef:1f  [ 47568229 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568229 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.30  [ 47568229 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568240 ]
+Jun 18 14:58:15 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.142  [ 47568240 ]
+Jun 18 14:58:16 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568327 ]
+Jun 18 14:58:16 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568327 ]
+Jun 18 14:58:16 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568328 ]
+Jun 18 14:58:16 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568329 ]
+Jun 18 14:58:16 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568384 ]
+Jun 18 14:58:16 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.153  [ 47568384 ]
+Jun 18 14:58:16 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568384 ]
+Jun 18 14:58:16 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.67  [ 47568384 ]
+Jun 18 14:58:16 velop daemon.err lighttpd[5966]: (connections.c.1550) SSL: 1 -1 error:140E0197:lib(20):func(224):reason(407)
+Jun 18 14:58:16 velop daemon.err lighttpd[5966]: (connections.c.1550) SSL: 1 -1 error:140E0197:lib(20):func(224):reason(407)
+Jun 18 14:58:17 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568430 ]
+Jun 18 14:58:17 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568431 ]
+Jun 18 14:58:17 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568431 ]
+Jun 18 14:58:17 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568432 ]
+Jun 18 14:58:18 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568533 ]
+Jun 18 14:58:18 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568534 ]
+Jun 18 14:58:18 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568535 ]
+Jun 18 14:58:18 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568535 ]
+Jun 18 14:58:18 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568544 ]
+Jun 18 14:58:18 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.10  [ 47568544 ]
+Jun 18 14:58:19 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568637 ]
+Jun 18 14:58:19 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568637 ]
+Jun 18 14:58:19 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568638 ]
+Jun 18 14:58:19 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568639 ]
+Jun 18 14:58:19 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568656 ]
+Jun 18 14:58:19 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.149  [ 47568656 ]
+Jun 18 14:58:20 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568726 ]
+Jun 18 14:58:20 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.165  [ 47568726 ]
+Jun 18 14:58:20 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568726 ]
+Jun 18 14:58:20 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.165  [ 47568726 ]
+Jun 18 14:58:20 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568733 ]
+Jun 18 14:58:20 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.119  [ 47568733 ]
+Jun 18 14:58:20 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568740 ]
+Jun 18 14:58:20 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568741 ]
+Jun 18 14:58:20 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568741 ]
+Jun 18 14:58:20 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.119  [ 47568741 ]
+Jun 18 14:58:20 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568741 ]
+Jun 18 14:58:20 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568742 ]
+Jun 18 14:58:21 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568800 ]
+Jun 18 14:58:21 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.51  [ 47568800 ]
+Jun 18 14:58:21 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568808 ]
+Jun 18 14:58:21 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.113  [ 47568808 ]
+Jun 18 14:58:21 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568843 ]
+Jun 18 14:58:21 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568844 ]
+Jun 18 14:58:21 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568845 ]
+Jun 18 14:58:21 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568845 ]
+Jun 18 14:58:21 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568885 ]
+Jun 18 14:58:21 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.153  [ 47568885 ]
+Jun 18 14:58:21 velop local7.notice UTOPIA: service.devidentd ARP: reset counter for IP 10.13.1.165  [ 47568886 ]
+Jun 18 14:58:21 velop local7.notice UTOPIA: service.devidentd ARP agent: report device change state for IP 10.13.1.165 MAC 00:0c:29:9f:06:a1  [ 47568886 ]
+Jun 18 14:58:21 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568886 ]
+Jun 18 14:58:21 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.165  [ 47568886 ]
+Jun 18 14:58:22 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568900 ]
+Jun 18 14:58:22 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.14  [ 47568900 ]
+Jun 18 14:58:22 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568900 ]
+Jun 18 14:58:22 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.14  [ 47568900 ]
+Jun 18 14:58:22 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568947 ]
+Jun 18 14:58:22 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568947 ]
+Jun 18 14:58:22 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568948 ]
+Jun 18 14:58:22 velop local7.notice UTOPIA: service.devidentd Ethernet Agent: EthUtil returns multiple MACs  [ 47568949 ]
+Jun 18 14:58:22 velop daemon.err lighttpd[5966]: (connections.c.1550) SSL: 1 -1 error:140E0197:lib(20):func(224):reason(407)
+Jun 18 14:58:22 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568961 ]
+Jun 18 14:58:22 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.153  [ 47568961 ]
+Jun 18 14:58:22 velop local7.notice UTOPIA: service.devidentd ARP: reset counter for IP 10.13.1.153  [ 47568962 ]
+Jun 18 14:58:22 velop local7.notice UTOPIA: service.devidentd ARP agent: report device change state for IP 10.13.1.153 MAC 5e:6b:e8:d5:84:dd  [ 47568962 ]
+Jun 18 14:58:22 velop local7.notice UTOPIA: service.devidentd INFO: don't have lrhk::ifname  [ 47568962 ]
+Jun 18 14:58:22 velop local7.notice UTOPIA: service.devidentd INFO: ARP agent reporting device online with ip 10.13.1.153  [ 47568962 ]
 
 ========================== Last 70 LED Information on messages.0 ==========================
 
@@ -1272,7 +1272,7 @@ Primary Mac Address 5GHz(2nd)	: D8:EC:5E:8E:ED:A1
 
 ------------- ath0 Settings -------------
 Interface name: ath0
-SSID: CodeSpooks7
+SSID: MyWiFi
 Mac address: D8:EC:5E:8E:ED:9F
 Frequency:2.472GHz
 Banwidth (0=HT 20HMz,1=40HMz,2=80HMz,3=80_80/160MHz): ath0      get_chwidth:0
@@ -1334,7 +1334,7 @@ HT20/40 Coex: ath2      g_disablecoext:0
 HT40 intolerance: ath2      get_ht40intol:0
 ------------- ath1 Settings -------------
 Interface name: ath1
-SSID: CodeSpooks7
+SSID: MyWiFi
 Mac address: D8:EC:5E:8E:ED:A0
 Frequency:5.22GHz
 Banwidth (0=HT 20HMz,1=40HMz,2=80HMz,3=80_80/160MHz): ath1      get_chwidth:2
@@ -1390,7 +1390,7 @@ HT20/40 Coex: ath1      g_disablecoext:1
 HT40 intolerance: ath1      get_ht40intol:0
 ------------- ath3 Settings -------------
 Interface name: ath3
-SSID: CodeSpooks7
+SSID: MyWiFi
 Mac address: DE:EC:5E:8E:ED:A0
 Frequency:5.22GHz
 Banwidth (0=HT 20HMz,1=40HMz,2=80HMz,3=80_80/160MHz): ath3      get_chwidth:2
@@ -1407,7 +1407,7 @@ HT20/40 Coex: ath3      g_disablecoext:1
 HT40 intolerance: ath3      get_ht40intol:0
 ------------- ath10 Settings -------------
 Interface name: ath10
-SSID: CodeSpooks7
+SSID: MyWiFi
 Mac address: D8:EC:5E:8E:ED:A1
 Frequency:5.58GHz
 Banwidth (0=HT 20HMz,1=40HMz,2=80HMz,3=80_80/160MHz): ath10     get_chwidth:2
@@ -1480,7 +1480,7 @@ wl0_rts_threshold=2347
 wl0_security_mode=wpa2-personal
 wl0_shared=0
 wl0_sideband=auto
-wl0_ssid=CodeSpooks7
+wl0_ssid=MyWiFi
 wl0_ssid_broadcast=1
 wl0_state=up
 wl0_stbc=disabled
@@ -1540,7 +1540,7 @@ wl1_rts_threshold=2347
 wl1_security_mode=wpa2-personal
 wl1_shared=0
 wl1_sideband=lower
-wl1_ssid=CodeSpooks7
+wl1_ssid=MyWiFi
 wl1_ssid_broadcast=1
 wl1_state=up
 wl1_stbc=disabled
@@ -1595,7 +1595,7 @@ wl2_rts_threshold=2347
 wl2_security_mode=wpa2-personal
 wl2_shared=0
 wl2_sideband=lower
-wl2_ssid=CodeSpooks7
+wl2_ssid=MyWiFi
 wl2_ssid_broadcast=1
 wl2_state=up
 wl2_stbc=disabled
@@ -1654,7 +1654,7 @@ Smart Connect SetupVAP  : ath4      IEEE 802.11axg  ESSID:"_VelopSetupD9E-SCS"
           Link Quality=0/94  Signal level=-101 dBm  Noise level=-101 dBm
           Rx invalid nwid:2  Rx invalid crypt:0  Rx invalid frag:0
           Tx excessive retries:0  Invalid misc:0   Missed beacon:0
-Smart Connect ConfigVAP  : ath5      IEEE 802.11axg  ESSID:"5IUTBaZ7Spnt9VKC0ggflLiwHghB0mAf"
+Smart Connect ConfigVAP  : ath5      IEEE 802.11axg  ESSID:"SmartConnectVAP"
           Mode:Master  Frequency:2.472 GHz  Access Point: E2:EC:5E:8E:ED:9F
           Bit Rate:286.8 Mb/s   Tx-Power:16 dBm
           RTS thr:off   Fragment thr:off
@@ -1673,7 +1673,7 @@ Smart Connect ConfigVAP  : ath5      IEEE 802.11axg  ESSID:"5IUTBaZ7Spnt9VKC0ggf
 smart_connect::br_dev=br2
 smart_connect::client_enabled=0
 smart_connect::configured_vap_security_mode=wpa2-personal
-smart_connect::configured_vap_ssid=5IUTBaZ7Spnt9VKC0ggflLiwHghB0mAf
+smart_connect::configured_vap_ssid=SmartConnectVAP
 smart_connect::configured_vap_ssid_broadcast=0
 smart_connect::server_enabled=1
 smart_connect::serverip=192.168.20.1
@@ -1894,7 +1894,7 @@ Radar: detected 0 radars
 WiFi debug info:
 ========================== Wi-Fi Development Debug Information ==========================
 2.4G information:
-ath0      IEEE 802.11axg  ESSID:"CodeSpooks7"
+ath0      IEEE 802.11axg  ESSID:"MyWiFi"
           Mode:Master  Frequency:2.472 GHz  Access Point: D8:EC:5E:8E:ED:9F
           Bit Rate:286.8 Mb/s   Tx-Power:16 dBm
           RTS thr:off   Fragment thr:off
@@ -1905,7 +1905,7 @@ ath0      IEEE 802.11axg  ESSID:"CodeSpooks7"
           Tx excessive retries:0  Invalid misc:0   Missed beacon:0
 
 5GL information:
-ath1      IEEE 802.11axa  ESSID:"CodeSpooks7"
+ath1      IEEE 802.11axa  ESSID:"MyWiFi"
           Mode:Master  Frequency:5.22 GHz  Access Point: D8:EC:5E:8E:ED:A0
           Bit Rate:1.201 Gb/s   Tx-Power:17 dBm
           RTS thr:off   Fragment thr:off
@@ -1916,7 +1916,7 @@ ath1      IEEE 802.11axa  ESSID:"CodeSpooks7"
           Tx excessive retries:0  Invalid misc:0   Missed beacon:0
 
 5GH information:
-ath10     IEEE 802.11axa  ESSID:"CodeSpooks7"
+ath10     IEEE 802.11axa  ESSID:"MyWiFi"
           Mode:Master  Frequency:5.58 GHz  Access Point: D8:EC:5E:8E:ED:A1
           Bit Rate:2.4019 Gb/s   Tx-Power:25 dBm
           RTS thr:off   Fragment thr:off
@@ -1967,7 +1967,7 @@ ath10     90 channels in total; available frequencies :
 Site Survey on 2.4GHz:
 ath0      Scan completed :
           Cell 01 - Address: AC:22:05:7C:10:08
-                    ESSID:"VMB37F39C"
+                    ESSID:"Neighbor-1"
                     Mode:Master
                     Frequency:2.412 GHz (Channel 1)
                     Quality=50/94  Signal level=-76 dBm  Noise level=-95 dBm
@@ -1989,7 +1989,7 @@ ath0      Scan completed :
                     Extra:dtim_period=1
                     IE: Unknown: DD310050F204104A000110104400010210470010DFF3E5001DD411B286015543A04A6443103C0001011049000600372A000120
           Cell 02 - Address: C4:41:1E:EC:48:89
-                    ESSID:"CodeSpooks7"
+                    ESSID:"MyWiFi"
                     Mode:Master
                     Frequency:2.417 GHz (Channel 2)
                     Quality=34/94  Signal level=-81 dBm  Noise level=-95 dBm
@@ -2039,7 +2039,7 @@ ath0      Scan completed :
                     Extra:wme_ie=dd180050f2020101000003a4000027a4000042435e0062322f00
                     Extra:phy_mode=IEEE80211_MODE_11NG_HT20
           Cell 05 - Address: 98:BA:5F:1B:39:CA
-                    ESSID:"Guest wifi "
+                    ESSID:"Neighbor-2"
                     Mode:Master
                     Frequency:2.447 GHz (Channel 8)
                     Quality=75/94  Signal level=-68 dBm  Noise level=-95 dBm
@@ -2057,7 +2057,7 @@ ath0      Scan completed :
                     Extra:dtim_period=1
                     IE: Unknown: DD1D0050F204104A0001101044000102103C0001031049000600372A000120
           Cell 06 - Address: 8E:F4:FD:F5:C3:8E
-                    ESSID:"Galaxy A53 5G 22F1"
+                    ESSID:"Neighbor-3"
                     Mode:Master
                     Frequency:2.437 GHz (Channel 6)
                     Quality=37/94  Signal level=-80 dBm  Noise level=-95 dBm
@@ -2074,7 +2074,7 @@ ath0      Scan completed :
                     Extra:phy_mode=IEEE80211_MODE_11NG_HT20
                     Extra:dtim_period=2
           Cell 07 - Address: 20:35:43:0E:EB:9D
-                    ESSID:"VM7080786"
+                    ESSID:"Neighbor-4"
                     Mode:Master
                     Frequency:2.437 GHz (Channel 6)
                     Quality=72/94  Signal level=-69 dBm  Noise level=-95 dBm
@@ -2091,7 +2091,7 @@ ath0      Scan completed :
                     Extra:dtim_period=1
                     IE: Unknown: DD1D0050F204104A0001101044000102103C0001031049000600372A000120
           Cell 08 - Address: 22:35:43:0E:EB:9F
-                    ESSID:"Horizon Wi-Free"
+                    ESSID:"Neighbor-5"
                     Mode:Master
                     Frequency:2.437 GHz (Channel 6)
                     Quality=72/94  Signal level=-69 dBm  Noise level=-95 dBm
@@ -2107,7 +2107,7 @@ ath0      Scan completed :
                     Extra:phy_mode=IEEE80211_MODE_11AXG_HE20
                     Extra:dtim_period=1
           Cell 09 - Address: E8:9F:80:4C:57:E0
-                    ESSID:"CodeSpooks7"
+                    ESSID:"MyWiFi"
                     Mode:Master
                     Frequency:2.432 GHz (Channel 5)
                     Quality=69/94  Signal level=-70 dBm  Noise level=-95 dBm
@@ -2144,7 +2144,7 @@ ath0      Scan completed :
                     Extra:ath_ie=dd0900037f01010000ff7f
                     Extra:dtim_period=1
           Cell 11 - Address: C4:41:1E:EC:43:61
-                    ESSID:"CodeSpooks7"
+                    ESSID:"MyWiFi"
                     Mode:Master
                     Frequency:2.427 GHz (Channel 4)
                     Quality=87/94  Signal level=-62 dBm  Noise level=-95 dBm
@@ -2180,7 +2180,7 @@ ath0      Scan completed :
                     Extra:ath_ie=dd0900037f01010000ff7f
                     Extra:dtim_period=1
           Cell 13 - Address: 34:2C:C4:88:FD:61
-                    ESSID:"VM5027843"
+                    ESSID:"Neighbor-6"
                     Mode:Master
                     Frequency:2.462 GHz (Channel 11)
                     Quality=40/94  Signal level=-79 dBm  Noise level=-95 dBm
@@ -2198,7 +2198,7 @@ ath0      Scan completed :
                     Extra:dtim_period=1
                     IE: Unknown: DD310050F204104A000110104400010210470010517E64001DD211B286011345A08A2245103C0001011049000600372A000120
           Cell 14 - Address: 36:2C:A4:88:FD:61
-                    ESSID:"Horizon Wi-Free"
+                    ESSID:"Neighbor-5"
                     Mode:Master
                     Frequency:2.462 GHz (Channel 11)
                     Quality=43/94  Signal level=-78 dBm  Noise level=-95 dBm
@@ -2215,7 +2215,7 @@ ath0      Scan completed :
                     Extra:phy_mode=IEEE80211_MODE_11NG_HT20
                     Extra:dtim_period=1
           Cell 15 - Address: C4:41:1E:EC:42:76
-                    ESSID:"CodeSpooks7"
+                    ESSID:"MyWiFi"
                     Mode:Master
                     Frequency:2.457 GHz (Channel 10)
                     Quality=94/94  Signal level=-51 dBm  Noise level=-95 dBm
@@ -2254,7 +2254,7 @@ ath0      Scan completed :
 Site Survey on 5GHz:
 ath1      Scan completed :
           Cell 01 - Address: C4:41:1E:EC:48:8A
-                    ESSID:"CodeSpooks7"
+                    ESSID:"MyWiFi"
                     Mode:Master
                     Frequency:5.22 GHz (Channel 44)
                     Quality=4/94  Signal level=-91 dBm  Noise level=-95 dBm
@@ -2272,7 +2272,7 @@ ath1      Scan completed :
                     Extra:dtim_period=1
                     IE: Unknown: DD1D0050F204104A0001101044000102103C0001021049000600372A000120
           Cell 02 - Address: 34:2C:C4:88:FD:53
-                    ESSID:"VM5027843"
+                    ESSID:"Neighbor-6"
                     Mode:Master
                     Frequency:5.22 GHz (Channel 44)
                     Quality=8/94  Signal level=-89 dBm  Noise level=-95 dBm
@@ -2289,7 +2289,7 @@ ath1      Scan completed :
                     Extra:dtim_period=1
                     IE: Unknown: DD1D0050F204104A0001101044000102103C0001021049000600372A000120
           Cell 03 - Address: 78:3E:53:C5:76:53
-                    ESSID:"SKY6EA11"
+                    ESSID:"Neighbor-7"
                     Mode:Master
                     Frequency:5.18 GHz (Channel 36)
                     Quality=37/94  Signal level=-80 dBm  Noise level=-95 dBm
@@ -2306,7 +2306,7 @@ ath1      Scan completed :
                     Extra:dtim_period=1
                     IE: Unknown: DD5F0050F204104A00011010440001021047001039387FA6E5A17A3C94F243744ADA6EFF103C0001021049000E00372A0001200106FFFFFFFFFFFF10580022007FC5100018F7616D12AF14A36B04C0EE5DB388F83F303030326336373130000101
           Cell 04 - Address: 38:A6:CE:DB:64:1D
-                    ESSID:"SKY6EA11"
+                    ESSID:"Neighbor-7"
                     Mode:Master
                     Frequency:5.18 GHz (Channel 36)
                     Quality=53/94  Signal level=-75 dBm  Noise level=-95 dBm
@@ -2323,7 +2323,7 @@ ath1      Scan completed :
                     Extra:dtim_period=1
                     IE: Unknown: DD5F0050F204104A00011010440001021047001081280450C2750FD65AC7E09148B47597103C0001021049000E00372A0001200106FFFFFFFFFFFF10580022007FC5100018F7616D12AF14A36B04C0EE5DB388F83F303030326336373130000101
           Cell 05 - Address: E8:9F:80:4C:57:E1
-                    ESSID:"CodeSpooks7"
+                    ESSID:"MyWiFi"
                     Mode:Master
                     Frequency:5.22 GHz (Channel 44)
                     Quality=31/94  Signal level=-82 dBm  Noise level=-95 dBm
@@ -2341,7 +2341,7 @@ ath1      Scan completed :
                     Extra:dtim_period=1
                     IE: Unknown: DD1D0050F204104A0001101044000102103C0001021049000600372A000120
           Cell 06 - Address: C4:41:1E:EC:43:62
-                    ESSID:"CodeSpooks7"
+                    ESSID:"MyWiFi"
                     Mode:Master
                     Frequency:5.22 GHz (Channel 44)
                     Quality=59/94  Signal level=-73 dBm  Noise level=-95 dBm
@@ -2358,7 +2358,7 @@ ath1      Scan completed :
                     Extra:ath_ie=dd0900037f01010000ff7f
                     Extra:dtim_period=1
           Cell 07 - Address: AC:F8:CC:F6:33:30
-                    ESSID:"Garda NSU"
+                    ESSID:"Neighbor-8"
                     Mode:Master
                     Frequency:5.22 GHz (Channel 44)
                     Quality=11/94  Signal level=-88 dBm  Noise level=-95 dBm
@@ -2375,7 +2375,7 @@ ath1      Scan completed :
                     Extra:dtim_period=2
                     IE: Unknown: DD220050F204104A00011010440001021057000101103C0001031049000600372A000120
           Cell 08 - Address: C4:41:1E:EC:42:77
-                    ESSID:"CodeSpooks7"
+                    ESSID:"MyWiFi"
                     Mode:Master
                     Frequency:5.22 GHz (Channel 44)
                     Quality=63/94  Signal level=-72 dBm  Noise level=-95 dBm
@@ -2392,7 +2392,7 @@ ath1      Scan completed :
                     Extra:ath_ie=dd0900037f01010000ff7f
                     Extra:dtim_period=1
           Cell 09 - Address: AC:22:05:7C:0F:FC
-                    ESSID:"VMB37F39C"
+                    ESSID:"Neighbor-1"
                     Mode:Master
                     Frequency:5.22 GHz (Channel 44)
                     Quality=11/94  Signal level=-88 dBm  Noise level=-95 dBm
@@ -2536,7 +2536,7 @@ br2       Link encap:Ethernet  HWaddr D8:EC:5E:8E:ED:9F
           RX bytes:12711517 (12.1 MiB)  TX bytes:1688183 (1.6 MiB)
 
 eth0      Link encap:Ethernet  HWaddr D8:EC:5E:8E:ED:9E
-          inet addr:109.255.78.2  Bcast:255.255.255.255  Mask:255.255.254.0
+          inet addr:203.0.113.2  Bcast:255.255.255.255  Mask:255.255.254.0
           inet6 addr: fe80::daec:5eff:fe8e:ed9e/64 Scope:Link
           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
           RX packets:149324007 errors:0 dropped:0 overruns:0 frame:0
@@ -2649,8 +2649,8 @@ cat /etc/resolv.conf:
 search chello.ie
 nameserver 127.0.0.1
 nameserver 8.8.8.8
-nameserver 89.101.160.4
-nameserver 89.101.160.5
+nameserver 198.51.100.4
+nameserver 198.51.100.5
 
 ip link:
 
@@ -2765,7 +2765,7 @@ ip neigh:
 10.13.1.38 dev br0  FAILED
 10.13.1.9 dev br0 lladdr c4:41:1e:ec:42:75 STALE
 10.13.1.11 dev br0 lladdr 00:11:32:84:ac:f8 REACHABLE
-109.255.78.1 dev eth1  FAILED
+203.0.113.1 dev eth1  FAILED
 192.168.20.173 dev br2 lladdr e8:9f:80:4c:57:e0 STALE
 10.13.1.21 dev br0 lladdr f4:ce:46:f3:95:13 REACHABLE
 192.168.20.123 dev br2 lladdr c4:41:1e:ec:42:76 STALE
@@ -2778,7 +2778,7 @@ ip neigh:
 10.13.1.67 dev br0 lladdr 00:fc:14:5c:c3:c7 REACHABLE
 10.13.1.48 dev br0  FAILED
 10.13.1.206 dev br0 lladdr 3e:52:9c:ff:8f:ac DELAY
-109.255.78.1 dev eth0 lladdr 00:17:10:91:0d:8f DELAY
+203.0.113.1 dev eth0 lladdr 00:17:10:91:0d:8f DELAY
 10.13.1.200 dev br0 lladdr 78:3e:53:c5:76:52 STALE
 10.13.1.108 dev br0  FAILED
 10.13.1.208 dev br0  FAILED
@@ -2845,7 +2845,7 @@ ip -4 addr show:
     inet 127.0.0.1/8 scope host lo
        valid_lft forever preferred_lft forever
 7: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP group default qlen 1000
-    inet 109.255.78.2/23 brd 255.255.255.255 scope global eth0
+    inet 203.0.113.2/23 brd 255.255.255.255 scope global eth0
        valid_lft forever preferred_lft forever
 13: br0: <BROADCAST,MULTICAST,ALLMULTI,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default qlen 1000
     inet 10.13.1.1/24 brd 10.13.1.255 scope global br0
@@ -2859,10 +2859,10 @@ ip -4 addr show:
 
 ip -4 route show:
 
-default via 109.255.78.1 dev eth0
+default via 203.0.113.1 dev eth0
 10.13.1.0/24 dev br0  proto kernel  scope link  src 10.13.1.1
-109.255.78.0/23 dev eth0  proto kernel  scope link  src 109.255.78.2
-109.255.78.1 dev eth0  scope link
+203.0.113.0/23 dev eth0  proto kernel  scope link  src 203.0.113.2
+203.0.113.1 dev eth0  scope link
 127.0.0.0/8 dev lo  scope link
 192.168.3.0/24 dev br1  proto kernel  scope link  src 192.168.3.1
 192.168.20.0/24 dev br2  proto kernel  scope link  src 192.168.20.1

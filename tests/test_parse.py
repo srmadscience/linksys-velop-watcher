@@ -330,7 +330,7 @@ def test_parse_radio_config_vaps(dump):
 def test_parse_radio_config_fields_and_settings(dump):
     rows = parse.parse_radio_config(dump)
     ath0 = next(r for r in rows if r["interface"] == "ath0")
-    assert ath0["ssid"] == "CodeSpooks7"
+    assert ath0["ssid"] == "MyWiFi"
     assert ath0["mac"] == "D8:EC:5E:8E:ED:9F"
     assert ath0["frequency"] == "2.472GHz"
     assert ath0["settings"]["chwidth"] == 0

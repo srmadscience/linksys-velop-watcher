@@ -51,6 +51,13 @@ cp .env.example .env          # then edit .env (see below)
 All runtime settings come from environment variables (see `.env.example`).
 `.env` is gitignored — keep secrets there, not in source.
 
+> **The defaults below are the author's home setup** — the router at
+> `10.13.1.1` and Kafka/registry/CrateDB on hosts named `badger`/`endowment`.
+> Change them to match your own network. Likewise, the `connect/*.json` sink
+> configs ship `CHANGEME_CRATE_USER`/`CHANGEME_CRATE_PASSWORD` placeholders you
+> must set (see [`connect/`](connect/)). The router password is **never** stored
+> in the repo — it is read from `VELOP_PASSWORD` at runtime only.
+
 | Variable          | Purpose                                  | Default                          |
 | ----------------- | ---------------------------------------- | -------------------------------- |
 | `VELOP_URL`       | Router sysinfo endpoint                  | `https://10.13.1.1/sysinfo.cgi`  |
