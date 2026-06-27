@@ -143,7 +143,11 @@ CREATE TABLE IF NOT EXISTS velop.system (
     mem_shared BIGINT,
     mem_buffers BIGINT,
     mem_cached BIGINT,
-    cpu_idle_pct DOUBLE
+    cpu_idle_pct DOUBLE,
+    source_node_mac TEXT,
+    source_node_name TEXT,
+    source_node_ip TEXT,
+    source_role TEXT
 );
 
 CREATE TABLE IF NOT EXISTS velop.ip_neighbor (

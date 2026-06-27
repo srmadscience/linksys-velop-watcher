@@ -30,7 +30,7 @@ from .parse import (
     parse_radio_stats,
     parse_system,
     parse_wlan_clients,
-    tag_radio_source,
+    tag_node_source,
 )
 from .oui import VendorResolver, enrich, load_manuf
 from .kafka_sink import KafkaSink, assign_ids
@@ -70,16 +70,18 @@ def main(argv: list[str] | None = None) -> int:
         "lldp": parse_lldp(text),
     }
 
-    # Whole-mesh WiFi: the master dump only carries the master's own radios, so
-    # client WiFi traffic (served mostly by satellites) is missing. Tag the
-    # master's radios, then fetch each satellite's dump for ITS radios. Each
-    # node fetch is best-effort -- an offline/unreachable node logs a note and is
+    # Whole-mesh capture: the master dump only carries the master's own radios
+    # and its own system health, so client WiFi traffic (served mostly by
+    # satellites) and per-node load/memory are missing. Tag the master's rows,
+    # then fetch each satellite's dump for ITS radios and system stats. Each node
+    # fetch is best-effort -- an offline/unreachable node logs a note and is
     # skipped rather than losing the whole capture. (Fetches are sequential; the
     # CGI is slow, so this multiplies wall-clock time by the node count.)
     nodes = parsed["nodes"]
     master = next((n for n in nodes if n["role"] == "master"), None)
     if master:
-        tag_radio_source(parsed["radio_stats"], master)
+        tag_node_source(parsed["radio_stats"], master)
+        tag_node_source(parsed["system"], master)
     for node in nodes:
         if node["role"] != "slave" or not node.get("ip"):
             continue
@@ -87,12 +89,14 @@ def main(argv: list[str] | None = None) -> int:
             node_text = fetch_sysinfo_url(node_sysinfo_url(cfg, node["ip"]), cfg)
         except (requests.RequestException, ValueError, TimeoutError) as exc:
             print(f"note: sysinfo fetch from {node['name']} ({node['ip']}) failed "
-                  f"({exc}); its radios are skipped", file=sys.stderr)
+                  f"({exc}); it is skipped", file=sys.stderr)
             continue
-        radios = tag_radio_source(parse_radio_stats(node_text), node)
+        radios = tag_node_source(parse_radio_stats(node_text), node)
         parsed["radio_stats"].extend(radios)
-        print(f"Captured {len(radios)} radios from {node['name']} ({node['ip']})",
-              file=sys.stderr)
+        system = tag_node_source(parse_system(node_text), node)
+        parsed["system"].extend(system)
+        print(f"Captured {len(radios)} radios + {len(system)} system row from "
+              f"{node['name']} ({node['ip']})", file=sys.stderr)
 
     # Best-effort: enrich devices with their untruncated names from the JNAP
     # API. A failure here (network/auth) must not lose the snapshot.

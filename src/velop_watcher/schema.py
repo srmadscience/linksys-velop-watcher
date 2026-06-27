@@ -75,6 +75,8 @@ TABLES: dict[str, list[tuple[str, str]]] = {
         ("load_15", "DOUBLE"), ("mem_total", "BIGINT"), ("mem_used", "BIGINT"),
         ("mem_free", "BIGINT"), ("mem_shared", "BIGINT"), ("mem_buffers", "BIGINT"),
         ("mem_cached", "BIGINT"), ("cpu_idle_pct", "DOUBLE"),
+        ("source_node_mac", "TEXT"), ("source_node_name", "TEXT"),
+        ("source_node_ip", "TEXT"), ("source_role", "TEXT"),
     ],
     "ip_neighbor": [
         ("ip", "TEXT"), ("family", "TEXT"), ("iface", "TEXT"), ("mac", "TEXT"),
