@@ -12,6 +12,44 @@ neighbors, lldp) — one Kafka topic (`velop.<table>`) per table. Every MAC
 address is annotated with its vendor via an **offline** OUI lookup — MAC
 addresses never leave the network.
 
+## What is `sysinfo.cgi`?
+
+`sysinfo.cgi` is an **undocumented diagnostic endpoint** built into Linksys Velop
+firmware. Every node serves it at `https://<node-ip>/sysinfo.cgi` (HTTP Basic
+auth, user `admin`, your Velop admin password). Requesting it makes the node run
+a batch of on-device diagnostics and **stream back one large plain-text report**
+(~4,800 lines / ~240 KB on the author's mesh): wireless config and scans,
+per-radio counters, the backhaul (`bh_report`) table, the device/client lists,
+ARP/LLDP neighbours, NIC counters, ping checks, and a slice of the system log.
+It's the same data Linksys support has customers pull when diagnosing a mesh.
+
+It is **per-node** — the master reports only its own radios/system, so this
+watcher also fetches each satellite's `sysinfo.cgi` (see [How it works](#how-it-works)).
+There is no official schema; the page format is reverse-engineered, and
+[`sampleoutput.txt`](sampleoutput.txt) is a full (sanitised) real dump kept as the
+parser reference. The page streams slowly and ends with a
+`**** End of Sysinfo Output ****` marker, so the fetcher reads to that marker
+rather than trusting connection close.
+
+**More info**
+
+- Linksys community — [Sysinfo.cgi login info](https://community.linksys.com/t5/Velop-Whole-Home-Wi-Fi/Sysinfo-cgi-login-info/td-p/1399934) (finding a node's IP and logging in)
+- Linksys community — [How accurate is sysinfo.cgi](https://community.linksys.com/t5/Velop-Whole-Home-Wi-Fi/How-accurate-is-sysinfo-cgi/td-p/1412271)
+- SNBForums — [using `bh_report` to tune node placement](https://www.snbforums.com/threads/suggestions-on-how-to-better-setup-this-network.65534/)
+- GitHub gist — [following the Velop log printed by `sysinfo.cgi`](https://gist.github.com/core2duoe6420/3361c0ed7d9a654bd056f3c953d10767)
+
+**Models known to expose `sysinfo.cgi`**
+
+| Model | Velop name | Role tested here | Status |
+|---|---|---|---|
+| **MX42** / MX4200 | Velop AX4200 (Wi‑Fi 6, tri‑band) | master | ✅ Confirmed — the author's master node |
+| **WHW03** (V1/V2) | Velop AC2200 (Wi‑Fi 5, tri‑band) | satellite | ✅ Confirmed — the author's satellite nodes |
+
+The endpoint appears across the Velop line running this firmware family — other
+`MX*` (e.g. MX5300 / Velop AX5300) and `WHW*` nodes are community-reported to
+expose it as well, but only the two models above are verified by this project.
+If you run the watcher against another model, a PR updating this table is welcome.
+
 ## How it works
 
 ```
@@ -36,6 +74,47 @@ cli.main() → fetch_sysinfo(cfg) → parse.* → enrich(...) → KafkaSink (Avr
   per-record `id` is the CrateDB primary key, so a Connect sink upsert never
   duplicates a row on re-delivery. See [`connect/`](connect/) for the sinks and
   `sql/velop_schema.sql` for the CrateDB DDL.
+
+## Prerequisites
+
+This watcher is the **producer** at the head of a pipeline; it assumes the rest
+of that pipeline already exists. None of the infrastructure below is stood up for
+you.
+
+**To run the watcher itself:**
+
+- A **Linksys Velop** mesh that exposes [`sysinfo.cgi`](#what-is-sysinfocgi),
+  reachable over HTTPS, plus its admin password.
+- **Python 3.10+** (installed as an editable package — see [Setup](#setup)).
+- A **Kafka broker** *and* a **Confluent Schema Registry** the watcher can reach
+  (`KAFKA_BOOTSTRAP`, `SCHEMA_REGISTRY_URL`). Kafka is the **only** sink: the
+  watcher produces Confluent-Avro and registers one schema per `velop.<table>`
+  topic, so a registry is required, not optional. Any Kafka with a Schema
+  Registry works (Confluent Platform, Redpanda, etc.).
+
+**To land the data in a database (the downstream pipeline):**
+
+- **Kafka Connect** running the **Confluent JDBC Sink** connector. The connector
+  configs in [`connect/`](connect/) (one per topic) consume each topic and
+  `upsert` into the database over pg-wire; register them with the helper scripts
+  there.
+- **CrateDB** as the destination. The `velop.*` tables must **pre-exist** — apply
+  [`sql/velop_schema.sql`](sql/velop_schema.sql) once (the sinks run
+  `auto.create=false`). Another pg-wire target the JDBC sink supports could be
+  substituted, but the schema and views here are written for CrateDB.
+
+**For dashboards (optional):**
+
+- **Grafana** with its **PostgreSQL** datasource pointed at CrateDB's pg-wire
+  port. Example panels/views live in [`sql/`](sql/) (`grafana_*.sql`). Mind the
+  CrateDB↔Grafana `NUMERIC` gotcha documented in
+  [`sql/grafana_radio_rates.sql`](sql/grafana_radio_rates.sql) — cast computed
+  numeric columns to `DOUBLE`/`REAL` or Grafana silently drops them.
+
+> **Minimum to see anything:** Velop + Kafka + Schema Registry — the watcher runs
+> and produces. Add Connect + CrateDB for persistence, then Grafana for
+> visualisation. These can be co-located or spread across hosts (the author runs
+> Kafka/registry/Connect on one box and CrateDB on another).
 
 ## Setup
 
@@ -97,6 +176,33 @@ as its first argument** (or the `VELOP_PASSWORD` env var):
 ```
 
 To run it as a service on a Raspberry Pi, see [`systemd/`](systemd/).
+
+## Dashboards
+
+Once the records are landing in CrateDB, the views in [`sql/`](sql/)
+(`grafana_*.sql`) drive Grafana panels. Import
+[`grafana/velop.json`](grafana/velop.json) to get the author's dashboard (point
+its PostgreSQL datasource at your CrateDB). Some example panels:
+
+**Wired vs. wireless throughput** — total mesh WiFi against wired traffic
+([`sql/grafana_wifi_vs_wired.sql`](sql/grafana_wifi_vs_wired.sql)).
+
+![Wired versus wireless](docs/grafana-wifi-vs-wired.png)
+
+**WiFi by node** — how much WiFi each node is serving
+([`sql/grafana_node_wifi.sql`](sql/grafana_node_wifi.sql)).
+
+![WiFi by router](docs/grafana-wifi-by-router.png)
+
+**Channel congestion** — airtime use (us vs. others) and TX-failure rate per
+band, from the per-radio counters
+([`sql/grafana_radio_rates.sql`](sql/grafana_radio_rates.sql)).
+
+![Radio channel congestion](docs/grafana-radio-congestion.png)
+
+> Heads-up: Grafana's PostgreSQL datasource silently drops `NUMERIC` columns —
+> cast computed numerics to `DOUBLE`/`REAL`. See
+> [`sql/grafana_radio_rates.sql`](sql/grafana_radio_rates.sql) for the details.
 
 ## Tests
 
