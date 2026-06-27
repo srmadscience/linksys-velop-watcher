@@ -612,20 +612,26 @@ def parse_radio_stats(text: str) -> list[dict]:
     return radios
 
 
-def tag_radio_source(radios: list[dict], node: dict) -> list[dict]:
-    """Stamp each radio record with the mesh node it was captured from, in place.
+def tag_node_source(records: list[dict], node: dict) -> list[dict]:
+    """Stamp each record with the mesh node it was captured from, in place.
 
-    ``radios`` are ``parse_radio_stats`` records; ``node`` is a ``parse_nodes``
-    record (``mac``/``name``/``ip``/``role``). Radio names (``wifi0/1/2``) repeat
-    across nodes and bands differ by model, so the source node is what makes a
-    radio's identity unique across the mesh. Returns ``radios`` for convenience.
+    ``records`` are per-node parse results (e.g. ``parse_radio_stats`` or
+    ``parse_system``); ``node`` is a ``parse_nodes`` record
+    (``mac``/``name``/``ip``/``role``). Many per-node tables (radios, system
+    health) are otherwise indistinguishable across the mesh, so the source node
+    is what makes each row's identity unique. Returns ``records`` for convenience.
     """
-    for radio in radios:
-        radio["source_node_mac"] = node.get("mac")
-        radio["source_node_name"] = node.get("name")
-        radio["source_node_ip"] = node.get("ip")
-        radio["source_role"] = node.get("role")
-    return radios
+    for record in records:
+        record["source_node_mac"] = node.get("mac")
+        record["source_node_name"] = node.get("name")
+        record["source_node_ip"] = node.get("ip")
+        record["source_role"] = node.get("role")
+    return records
+
+
+def tag_radio_source(radios: list[dict], node: dict) -> list[dict]:
+    """Back-compat alias of :func:`tag_node_source` for radio_stats records."""
+    return tag_node_source(radios, node)
 
 
 # --------------------------------------------------------------------------

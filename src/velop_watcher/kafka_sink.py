@@ -118,6 +118,8 @@ TABLE_SPECS: list[TableSpec] = [
         ("load_15", "double"), ("mem_total", "long"), ("mem_used", "long"),
         ("mem_free", "long"), ("mem_shared", "long"), ("mem_buffers", "long"),
         ("mem_cached", "long"), ("cpu_idle_pct", "double"),
+        ("source_node_mac", "str"), ("source_node_name", "str"),
+        ("source_node_ip", "str"), ("source_role", "str"),
     ]),
     TableSpec("ip_neighbors", "ip_neighbor", [
         ("ip", "str"), ("family", "str"), ("iface", "str"), ("mac", "str"),

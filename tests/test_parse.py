@@ -317,6 +317,20 @@ def test_tag_radio_source_tolerates_missing_node_fields():
     assert radios[0]["source_role"] is None
 
 
+def test_tag_node_source_stamps_system_rows(dump):
+    rows = parse.parse_system(dump)
+    node = {"mac": "C4:41:1E:EC:42:75", "name": "LINKSYS-Hall",
+            "ip": "10.13.1.9", "role": "slave"}
+    tagged = parse.tag_node_source(rows, node)
+    assert tagged is rows  # tags in place, returns same list
+    assert rows  # the sample dump has a system record
+    for r in rows:
+        assert r["source_node_mac"] == "C4:41:1E:EC:42:75"
+        assert r["source_node_name"] == "LINKSYS-Hall"
+        assert r["source_node_ip"] == "10.13.1.9"
+        assert r["source_role"] == "slave"
+
+
 # --------------------------------------------------------------------------
 # athN Settings -> radio_config (Tier 6)
 # --------------------------------------------------------------------------

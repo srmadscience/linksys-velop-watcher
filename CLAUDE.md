@@ -183,6 +183,15 @@ the `velop.*` CrateDB tables.
   nodes' radios for true mesh WiFi. The `source_node_*` columns are part of the
   base schema (`sql/velop_schema.sql`); **re-run the `CREATE OR REPLACE VIEW`s in
   the Crate UI after deploying** — views are not auto-updated.
+- **`system` is per-node too** (same pattern as `radio_stats`): the master dump
+  only carries the master's uptime/load/memory, so `cli` parses `parse_system`
+  from each satellite's dump and `tag_node_source` stamps every row with
+  `source_node_mac/_name/_ip/_role` (the master's row is tagged too). Use
+  `COALESCE(source_node_mac, 'master')` to group. `tag_node_source` is the
+  generic tagger; `tag_radio_source` is a back-compat alias. The four
+  `source_node_*` columns were added to `velop.system` — a deployed table needs
+  them added (the Connect sink's `auto.evolve=true` does this, or apply the
+  `ALTER TABLE velop.system ADD COLUMN ...` manually).
 - **The dump does NOT contain real DHCP leases.** `/tmp/dnsmasq.leases` (lease
   expiry, DHCP client-id, DHCP-supplied hostname) appears only as an `lsof`
   open-fd reference, never its contents. `velop.ip_neighbor` (from `ip neigh:`)
