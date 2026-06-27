@@ -1,5 +1,10 @@
 # linksys-velop-watcher
 
+[![License](https://img.shields.io/github/license/srmadscience/linksys-velop-watcher)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](pyproject.toml)
+[![Sink: Kafka + Avro](https://img.shields.io/badge/sink-Kafka%20%2B%20Avro-231F20?logo=apachekafka&logoColor=white)](connect/)
+[![Store: CrateDB](https://img.shields.io/badge/store-CrateDB-5269A3)](sql/velop_schema.sql)
+
 A watcher that periodically downloads the `sysinfo.cgi` diagnostic dump from a
 Linksys Velop mesh router and produces each snapshot to Kafka as
 Confluent-Avro, to study the router and track how its state changes over time.
