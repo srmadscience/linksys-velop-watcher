@@ -1,5 +1,26 @@
 # linksys-velop-watcher
 
+There are two kinds of people who use Mesh WiFi. People who really, really like WiFi. And people who live in buildings that 
+absolutely *hate* WiFi. Like me. An 1862 building with 40cm granite walls and 4m ceilings sounds great, until you attempt to use 
+WiFi in it. You will find that your local ISP has spent a considerable amount of time and money making its sales reps
+convinced that their router is one step short of sentient, and would work perfectly even at the bottom of a coal mine. 
+
+The reality, my friends, is sadly different. The much vaunted router that the ISP sold me was unboxed with the kind
+of careful reverence normally reserved for [asteroid sample return missions](https://en.wikipedia.org/wiki/OSIRIS-REx).
+But it turns out to have about as much 'reach' as a fly in amber, so 
+we end up spending money on your own Mesh WiFi. In this case Linksys velop.  Everyone in the house is a heavy internet user, 
+especially  yours truly. We have >30 devices online. We have some internal Cat 5 backhaul, dating from the 2000's. We've got to the point 
+where I now have a master (connected to the ISP's box, which just provides a connection in bridge mode), and 4 other routers, 
+three of which are connected via backhaul. Yes. This is insane.
+
+So recently I decided to finally stop treating my mesh network as a black box, to stop leaving small votive offerings
+of chocolate and airline miniatures of whiskey in front of the master node, and instead bully Claude into using an
+undocumented-but-working script called 'sysinfo.cgi' to extract as much info as possible, and load it into a CrateDB 
+database via Kakfa Connect. I then wrote a Grafana dashboard to try and make sense of what's going on.
+
+The repo is the result of that process. Make of it what you will. 
+
+##  So what is it?
 [![License](https://img.shields.io/github/license/srmadscience/linksys-velop-watcher)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](pyproject.toml)
 [![Sink: Kafka + Avro](https://img.shields.io/badge/sink-Kafka%20%2B%20Avro-231F20?logo=apachekafka&logoColor=white)](connect/)
