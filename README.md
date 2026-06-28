@@ -9,14 +9,15 @@ The reality, my friends, is sadly different. The much vaunted router that the IS
 of careful reverence normally reserved for [asteroid sample return missions](https://en.wikipedia.org/wiki/OSIRIS-REx).
 But it turns out to have about as much 'reach' as a fly in amber, so 
 we end up spending money on your own Mesh WiFi. In this case Linksys velop.  Everyone in the house is a heavy internet user, 
-especially  yours truly. We have >30 devices online. We have some internal Cat 5 backhaul, dating from the 2000's. We've got to the point 
+especially  yours truly. We have >30 devices online. We have some internal Cat 5 backhaul, dating from the 2000's. We've 
+got to the point 
 where I now have a master (connected to the ISP's box, which just provides a connection in bridge mode), and 4 other routers, 
 three of which are connected via backhaul. Yes. This is insane.
 
 So recently I decided to finally stop treating my mesh network as a black box, to stop leaving small votive offerings
 of chocolate and airline miniatures of whiskey in front of the master node, and instead bully Claude into using an
 undocumented-but-working script called 'sysinfo.cgi' to extract as much info as possible, and load it into a CrateDB 
-database via Kakfa Connect. I then wrote a Grafana dashboard to try and make sense of what's going on.
+database via Kafka Connect. I then wrote a Grafana dashboard to try and make sense of what's going on.
 
 The repo is the result of that process. Make of it what you will. 
 
