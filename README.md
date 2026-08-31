@@ -98,7 +98,9 @@ cli.main() → fetch_sysinfo(cfg) → parse.* → enrich(...) → KafkaSink (Avr
   as Confluent-Avro; the schemas auto-register in the Schema Registry. A
   per-record `id` is the CrateDB primary key, so a Connect sink upsert never
   duplicates a row on re-delivery. See [`connect/`](connect/) for the sinks and
-  `sql/velop_schema.sql` for the CrateDB DDL.
+  `sql/velop_schema.sql` for the CrateDB DDL — every `sql/<name>.sql` has a
+  stock-PostgreSQL twin at `sql/<name>_postgres.sql`
+  (see [`sql/README_postgres.md`](sql/README_postgres.md)).
 
 ## Prerequisites
 
@@ -121,20 +123,25 @@ you.
 
 - **Kafka Connect** running the **Confluent JDBC Sink** connector. The connector
   configs in [`connect/`](connect/) (one per topic) consume each topic and
-  `upsert` into the database over pg-wire; register them with the helper scripts
-  there.
-- **CrateDB** as the destination. The `velop.*` tables must **pre-exist** — apply
-  [`sql/velop_schema.sql`](sql/velop_schema.sql) once (the sinks run
-  `auto.create=false`). Another pg-wire target the JDBC sink supports could be
-  substituted, but the schema and views here are written for CrateDB.
+  `upsert` into the database; register them with the helper scripts there.
+  There are two sets — `velop-sink-<table>.json` for CrateDB and
+  `velop-sink-<table>-postgres.json` for PostgreSQL — and they can run side by
+  side (`./connect/install-sinks.sh --target=crate|postgres|all`).
+- **CrateDB or stock PostgreSQL** as the destination. The `velop.*` tables must
+  **pre-exist** (the sinks run `auto.create=false`): apply
+  [`sql/velop_schema.sql`](sql/velop_schema.sql) for CrateDB, or
+  [`sql/velop_schema_postgres.sql`](sql/velop_schema_postgres.sql) for
+  PostgreSQL — same tables, same views, translated.
 
 **For dashboards (optional):**
 
 - **Grafana** with its **PostgreSQL** datasource pointed at CrateDB's pg-wire
-  port. Example panels/views live in [`sql/`](sql/) (`grafana_*.sql`). Mind the
-  CrateDB↔Grafana `NUMERIC` gotcha documented in
+  port (or at PostgreSQL, if you took that route). Example panels/views live in
+  `sql/grafana_*.sql`, with PostgreSQL versions in `sql/grafana_*_postgres.sql`.
+  Mind the Grafana `NUMERIC` gotcha documented in
   [`sql/grafana_radio_rates.sql`](sql/grafana_radio_rates.sql) — cast computed
-  numeric columns to `DOUBLE`/`REAL` or Grafana silently drops them.
+  numeric columns to `DOUBLE`/`REAL` or Grafana silently drops them. It bites
+  PostgreSQL harder, since its 2-argument `ROUND` is `NUMERIC`-only.
 
 > **Minimum to see anything:** Velop + Kafka + Schema Registry — the watcher runs
 > and produces. Add Connect + CrateDB for persistence, then Grafana for
@@ -204,10 +211,10 @@ To run it as a service on a Raspberry Pi, see [`systemd/`](systemd/).
 
 ## Dashboards
 
-Once the records are landing in CrateDB, the views in [`sql/`](sql/)
-(`grafana_*.sql`) drive Grafana panels. Import
+Once the records are landing, the views in `sql/grafana_*.sql` (or
+`sql/grafana_*_postgres.sql`) drive Grafana panels. Import
 [`grafana/velop.json`](grafana/velop.json) to get the author's dashboard (point
-its PostgreSQL datasource at your CrateDB). Some example panels:
+its PostgreSQL datasource at your CrateDB or PostgreSQL). Some example panels:
 
 **Wired vs. wireless throughput** — total mesh WiFi against wired traffic
 ([`sql/grafana_wifi_vs_wired.sql`](sql/grafana_wifi_vs_wired.sql)).

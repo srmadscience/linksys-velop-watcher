@@ -90,7 +90,12 @@ editable install or with `src` on `PYTHONPATH`):
   it (asserted by `test_specs_match_schema_columns`), and `schema_sql()`
   generates `sql/velop_schema.sql` (run `python -m velop_watcher.schema`). There
   is no Python that writes to CrateDB; the tables are created from that SQL and
-  filled by the Connect sinks. (Replaced the old `store.py`.)
+  filled by the Connect sinks. (Replaced the old `store.py`.) The same TABLES
+  also generate a **PostgreSQL** translation of the DDL —
+  `python -m velop_watcher.schema --dialect postgres > sql/velop_schema_postgres.sql`
+  (`PG_TYPES` maps `DOUBLE`→`DOUBLE PRECISION`, `ARRAY(TEXT)`→`TEXT[]`,
+  `OBJECT(IGNORED)`→`JSONB`; `PG_INDEXES`/`PG_FUNCTIONS` add what CrateDB gives
+  for free). `tests/test_schema.py` fails if either checked-in file is stale.
 - `kafka_sink.py` — the only sink: produces each structured table to its own
   Kafka topic (`velop.<table>`) as Confluent-Avro, mirroring hcpy's
   `hc2kafka.py`. `TABLE_SPECS` declares one topic/Avro schema per table (column
@@ -99,14 +104,24 @@ editable install or with `src` on `PYTHONPATH`):
   (only `device.extra_macs`/`extra_macs_vendor`) are sent as real Avro arrays
   (kind `array`) — a JSON string lands as TEXT and CrateDB rejects TEXT→ARRAY, so
   with the sink's `errors.tolerance=all` every device row was silently dropped.
-  `fetched_at` is Avro `timestamp-millis`. `assign_ids` stamps each record's `id` up front (the
+  An **empty** array goes out as `null`, not `[]`: the JDBC sink binds a
+  non-empty Avro array as a `varchar[]` parameter but stringifies an empty one to
+  the literal `"[]"`, which PostgreSQL rejects for `TEXT[]` (CrateDB accepts it,
+  so this only bit the pg sink). `fetched_at` is Avro `timestamp-millis`. `assign_ids` stamps each record's `id` up front (the
   CrateDB primary key) so a Connect sink upsert is stable on re-delivery.
   `confluent_kafka` is imported lazily inside `KafkaSink`. The matching JDBC
-  sink connectors live in `connect/` (see `connect/README.md`), with helper
-  scripts `connect/install-sinks.sh` (idempotent register/update via
+  sink connectors live in `connect/` (see `connect/README.md`) in **two sets** —
+  `velop-sink-<table>.json` (CrateDB, `crate-jdbc-sink-velop-*`) and
+  `velop-sink-<table>-postgres.json` (PostgreSQL, `postgres-jdbc-sink-velop-*`),
+  which can run side by side against the same topics. Helper scripts:
+  `connect/install-sinks.sh` (idempotent register/update via
   `PUT /connectors/<name>/config`), `connect/restart-sinks.sh` (restart
   connectors+tasks; FAILED-only or `--all`), and `connect/status-sinks.sh` — all
-  honour `CONNECT_URL` (default `http://badger:8083`) and need `curl` + `jq`.
+  honour `CONNECT_URL` (default `http://badger:8083`), take
+  `--target=crate|postgres|all` (via the shared `connect/sink-files.sh`) and need
+  `curl` + `jq`. `install-sinks.sh` fills each `CHANGEME_<VAR>` placeholder from
+  `$<VAR>` (`CRATE_USER`/`CRATE_PASSWORD`, `PG_USER`/`PG_PASSWORD`) so no
+  credential is committed.
   `KafkaSink` also exposes the store-and-forward seams the outbox uses:
   `kafka_up()` (probes BOTH broker via `list_topics` and registry via
   `GET /subjects` — both live on `badger` and go down together),
@@ -149,6 +164,42 @@ the `velop.*` CrateDB tables.
   `VELOP_PASSWORD` at runtime. Keep it out of source, tests, and memory.
 - The router has a **self-signed TLS cert**, so `verify_tls` defaults to `False`
   (TLS warnings are suppressed). Auth is HTTP Basic.
+- **Every `sql/<name>.sql` (CrateDB) has a `sql/<name>_postgres.sql` twin**
+  (see `sql/README_postgres.md`). Same tables/views/semantics; the DDL is
+  generated from `schema.py` (`--dialect postgres`) while the `grafana_*.sql`
+  views are hand-maintained, so **change a view in both places**. Translations:
+  `fetched_at::BIGINT`→`velop.epoch_ms(fetched_at)`,
+  `stats['k']`→`stats->>'k'`, `TRY_CAST`→`velop.try_bigint`/`try_double` (the
+  three helpers are created by `sql/velop_schema_postgres.sql`, so apply it
+  first). Every `_postgres.sql` file is `psql -f`-clean: the Grafana panel
+  queries at the bottom are commented out, because `${__from}`/`${__to}` are
+  Grafana macros and not SQL. The Grafana `NUMERIC` gotcha below is a
+  Grafana-side fault and applies unchanged — worse, in fact: PostgreSQL's 2-arg
+  `ROUND` is `NUMERIC`-only and integer/`1000.0` division yields `NUMERIC`
+  (CrateDB typed it `DOUBLE`), so the `::DOUBLE PRECISION` casts are mandatory
+  rather than merely advisable.
+- **The `_postgres` rate views use `LAG()`, not the CrateDB self-join.** The
+  CrateDB views pair each snapshot with its predecessor via
+  `JOIN ... ON b.t_ms < a.t_ms` + `MAX(b.t_ms)`; PostgreSQL plans that as a
+  quadratic merge join, so a full scan of `v_nic_rates` builds ~2.8M
+  intermediate rows from 40k and never finishes (Grafana just times out). The
+  `_postgres` twins use `LAG() OVER (PARTITION BY <series> ORDER BY t_ms)`
+  instead — same columns, whole history scanned in seconds. **Keep this in mind
+  when syncing a view change across the two dialects: they are deliberately not
+  line-for-line.**
+- **`try_bigint`/`try_double` must not catch the cast error.** The obvious
+  plpgsql `BEGIN RETURN x::BIGINT; EXCEPTION WHEN others THEN RETURN NULL; END`
+  opens a subtransaction, and a subtransaction is illegal once the executor has
+  entered parallel mode: as soon as PostgreSQL picks a parallel plan for one of
+  the views the whole query dies with *"cannot start subtransactions during a
+  parallel operation"*. They are therefore plain `LANGUAGE sql` functions that
+  validate with a regex first, which keeps them `PARALLEL SAFE`.
+- **The live PostgreSQL target is `endowment:5433/endowment_db`** (CrateDB is
+  `endowment:5432`), user `scott`. Both sink sets run on the same Connect
+  cluster (`badger:8083`). The pg sink URLs carry **`?stringtype=unspecified`**:
+  the `OBJECT(IGNORED)`→`JSONB` columns arrive as JSON *strings* and PostgreSQL
+  will not implicitly coerce `TEXT`→`JSONB`, so without it every `node`,
+  `radio_stats`, `radio_config` and `lldp_neighbor` row fails.
 - **CrateDB is never reached by the watcher.** Records get there only via the
   Kafka Connect JDBC sinks (`connect/`), over pg-wire (port 5432). The `velop.*`
   tables must pre-exist — apply `sql/velop_schema.sql` (generated from
@@ -171,8 +222,8 @@ the `velop.*` CrateDB tables.
   `array`) so they land natively — sending those as JSON strings instead made the
   JDBC sink drop every `device` row (TEXT→ARRAY is rejected, and
   `errors.tolerance=all` swallows it); and `connect/*.json` carry
-  `CHANGEME_CRATE_USER`/`CHANGEME_CRATE_PASSWORD` placeholder CrateDB creds — set
-  them before registering, or externalize via a Connect `ConfigProvider`.
+  `CHANGEME_*` credential placeholders that `install-sinks.sh` fills from the
+  environment (or externalize via a Connect `ConfigProvider`).
 - **Radio counters are per-node; a radio's identity is (node, band, radio).**
   `radio_stats` holds `wifi0/1/2` from every mesh node — names collide across
   nodes and bands differ by model (master MX42 vs satellite WHW03: master

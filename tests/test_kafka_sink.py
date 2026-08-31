@@ -83,6 +83,22 @@ def test_record_value_passes_array_columns_through_as_lists():
     assert missing["extra_macs"] is None
 
 
+def test_record_value_sends_empty_arrays_as_null():
+    # An EMPTY list must go out as null too. The Confluent JDBC sink binds a
+    # non-empty Avro array as a real varchar[] parameter but stringifies an
+    # empty one to the literal "[]", which PostgreSQL rejects for a TEXT[]
+    # column ("malformed array literal"). CrateDB accepts [] (its array literals
+    # are JSON-shaped), so this only ever bit the PostgreSQL sink.
+    dev_spec = next(s for s in TABLE_SPECS if s.table == "device")
+    value = record_value(
+        dev_spec,
+        {"mac": "a", "extra_macs": [], "extra_macs_vendor": []},
+        "r", "s", datetime.now(timezone.utc),
+    )
+    assert value["extra_macs"] is None
+    assert value["extra_macs_vendor"] is None
+
+
 def test_record_value_missing_fields_are_none():
     spec = next(s for s in TABLE_SPECS if s.table == "radio_stats")
     value = record_value(spec, {}, "r", "s", datetime.now(timezone.utc))

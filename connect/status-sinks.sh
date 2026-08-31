@@ -5,18 +5,20 @@
 #
 # Usage:
 #   ./connect/status-sinks.sh
+#   ./connect/status-sinks.sh --target=postgres   # the PostgreSQL sink set
 #   CONNECT_URL=http://my-connect:8083 ./connect/status-sinks.sh
 #
 set -euo pipefail
 
 CONNECT_URL="${CONNECT_URL:-http://badger:8083}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${HERE}/sink-files.sh"
 
 command -v jq   >/dev/null || { echo "error: jq is required" >&2; exit 1; }
 command -v curl >/dev/null || { echo "error: curl is required" >&2; exit 1; }
 
 rc=0
-for f in "${HERE}"/velop-sink-*.json; do
+while read -r f; do
   name="$(jq -r '.name' "$f")"
   status="$(curl -s "${CONNECT_URL}/connectors/${name}/status" 2>/dev/null || true)"
 
@@ -33,6 +35,6 @@ for f in "${HERE}"/velop-sink-*.json; do
 
   [[ "$conn_state" != "RUNNING" ]] && rc=1
   echo "$task_states" | grep -q 'FAILED' && rc=1
-done
+done < <(sink_files)
 
 exit "$rc"
