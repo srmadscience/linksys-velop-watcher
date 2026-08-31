@@ -32,7 +32,8 @@ from datetime import datetime
 # Column kinds -> Avro (non-null branch of a nullable union). "json" covers the
 # CrateDB OBJECT(IGNORED) columns, sent as a JSON string. "array" covers the
 # CrateDB ARRAY(TEXT) columns, sent as a real Avro array (a JSON string lands as
-# TEXT and CrateDB rejects TEXT -> ARRAY, so those rows would be dropped).
+# TEXT and CrateDB rejects TEXT -> ARRAY, so those rows would be dropped) --
+# except when the array is empty, which record_value sends as null instead.
 _KIND_TO_AVRO = {
     "str": "string",
     "int": "int",
@@ -171,9 +172,17 @@ def record_value(spec: TableSpec, rec: dict, row_id: str, snapshot_id: str,
     """Build the Avro value dict for one record (pure; no Kafka).
 
     ``json`` columns are JSON-encoded (or null); ``array`` columns pass their
-    list through as an Avro array (or null) so the JDBC sink lands a real
-    ARRAY(TEXT); other columns pass through by key from the parse.py record.
-    ``fetched_at`` stays a datetime for the Avro ``timestamp-millis`` logical type.
+    list through as an Avro array so the JDBC sink lands a real ARRAY(TEXT);
+    other columns pass through by key from the parse.py record. ``fetched_at``
+    stays a datetime for the Avro ``timestamp-millis`` logical type.
+
+    An **empty** array column is sent as ``null``, not as ``[]``: the Confluent
+    JDBC sink binds a non-empty Avro array as a real ``varchar[]`` parameter but
+    stringifies an empty one to the literal ``"[]"``, which PostgreSQL rejects
+    for a ``TEXT[]`` column ("malformed array literal"). CrateDB happens to
+    accept ``[]`` (its array literals are JSON-shaped), which is why this only
+    ever showed up against stock PostgreSQL. NULL and [] mean the same thing
+    here -- no extra MACs -- so nothing is lost.
     """
     json_cols = spec.json_columns()
     array_cols = spec.array_columns()
@@ -183,7 +192,9 @@ def record_value(spec: TableSpec, rec: dict, row_id: str, snapshot_id: str,
         if name in json_cols:
             value[name] = None if raw is None else json.dumps(raw)
         elif name in array_cols:
-            value[name] = None if raw is None else list(raw)
+            # [] -> None: an empty Avro array is stringified to "[]" by the
+            # JDBC sink and rejected by a PostgreSQL TEXT[] column (see above).
+            value[name] = list(raw) if raw else None
         else:
             value[name] = raw
     return value
