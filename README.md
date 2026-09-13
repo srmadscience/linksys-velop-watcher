@@ -16,8 +16,8 @@ three of which are connected via backhaul. Yes. This is insane.
 
 So recently I decided to finally stop treating my mesh network as a black box, to stop leaving small votive offerings
 of chocolate and airline miniatures of whiskey in front of the master node, and instead bully Claude into using an
-undocumented-but-working script called 'sysinfo.cgi' to extract as much info as possible, and load it into a CrateDB 
-database via Kafka Connect. I then wrote a Grafana dashboard to try and make sense of what's going on.
+undocumented-but-working script called 'sysinfo.cgi' to extract as much info as possible, and load it into a PostgreSQL
+database via Kafka Connect. (It started out landing in CrateDB, and still can.) I then wrote a Grafana dashboard to try and make sense of what's going on.
 
 The repo is the result of that process. Make of it what you will. 
 
@@ -25,13 +25,14 @@ The repo is the result of that process. Make of it what you will.
 [![License](https://img.shields.io/github/license/srmadscience/linksys-velop-watcher)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](pyproject.toml)
 [![Sink: Kafka + Avro](https://img.shields.io/badge/sink-Kafka%20%2B%20Avro-231F20?logo=apachekafka&logoColor=white)](connect/)
-[![Store: CrateDB](https://img.shields.io/badge/store-CrateDB-5269A3)](sql/velop_schema.sql)
+[![Store: PostgreSQL](https://img.shields.io/badge/store-PostgreSQL-336791?logo=postgresql&logoColor=white)](sql/velop_schema_postgres.sql)
 
 A watcher that periodically downloads the `sysinfo.cgi` diagnostic dump from a
 Linksys Velop mesh router and produces each snapshot to Kafka as
 Confluent-Avro, to study the router and track how its state changes over time.
 [Kafka Connect JDBC sinks](connect/) land the records in
-[CrateDB](https://crate.io/).
+**PostgreSQL** (or in [CrateDB](https://crate.io/) — a second set of connector
+configs ships for it).
 
 Each run parses the dump into structured, snapshot-linked records (devices, wlan
 clients, backhaul, nodes, ping, radio stats/config, nic counters, system, ip
@@ -80,7 +81,7 @@ If you run the watcher against another model, a PR updating this table is welcom
 ```
 cli.main() → fetch_sysinfo(cfg) → parse.* → enrich(...) → KafkaSink (Avro)
                                                               ↓
-                              Kafka topics → Connect JDBC sinks → CrateDB
+                              Kafka topics → Connect JDBC sinks → PostgreSQL
 ```
 
 - **fetch** — the CGI streams its output slowly, so the fetcher reads the
@@ -96,10 +97,10 @@ cli.main() → fetch_sysinfo(cfg) → parse.* → enrich(...) → KafkaSink (Avr
   Wireshark `manuf` file (offline, no cache DB needed).
 - **produce** — each structured record is produced to its `velop.<table>` topic
   as Confluent-Avro; the schemas auto-register in the Schema Registry. A
-  per-record `id` is the CrateDB primary key, so a Connect sink upsert never
+  per-record `id` is the table's primary key, so a Connect sink upsert never
   duplicates a row on re-delivery. See [`connect/`](connect/) for the sinks and
-  `sql/velop_schema.sql` for the CrateDB DDL — every `sql/<name>.sql` has a
-  stock-PostgreSQL twin at `sql/<name>_postgres.sql`
+  `sql/velop_schema_postgres.sql` for the DDL — every `sql/<name>_postgres.sql`
+  has a CrateDB twin at `sql/<name>.sql`
   (see [`sql/README_postgres.md`](sql/README_postgres.md)).
 
 ## Prerequisites
@@ -124,19 +125,19 @@ you.
 - **Kafka Connect** running the **Confluent JDBC Sink** connector. The connector
   configs in [`connect/`](connect/) (one per topic) consume each topic and
   `upsert` into the database; register them with the helper scripts there.
-  There are two sets — `velop-sink-<table>.json` for CrateDB and
-  `velop-sink-<table>-postgres.json` for PostgreSQL — and they can run side by
-  side (`./connect/install-sinks.sh --target=crate|postgres|all`).
-- **CrateDB or stock PostgreSQL** as the destination. The `velop.*` tables must
+  There are two sets — `velop-sink-<table>-postgres.json` for PostgreSQL (the
+  default) and `velop-sink-<table>.json` for CrateDB — and they can run side by
+  side (`./connect/install-sinks.sh --target=postgres|crate|all`).
+- **Stock PostgreSQL or CrateDB** as the destination. The `velop.*` tables must
   **pre-exist** (the sinks run `auto.create=false`): apply
-  [`sql/velop_schema.sql`](sql/velop_schema.sql) for CrateDB, or
   [`sql/velop_schema_postgres.sql`](sql/velop_schema_postgres.sql) for
-  PostgreSQL — same tables, same views, translated.
+  PostgreSQL, or [`sql/velop_schema.sql`](sql/velop_schema.sql) for CrateDB —
+  same tables, same views, translated.
 
 **For dashboards (optional):**
 
-- **Grafana** with its **PostgreSQL** datasource pointed at CrateDB's pg-wire
-  port (or at PostgreSQL, if you took that route). Example panels/views live in
+- **Grafana** with its **PostgreSQL** datasource pointed at your PostgreSQL (or
+  at CrateDB's pg-wire port, if you took that route). Example panels/views live in
   `sql/grafana_*.sql`, with PostgreSQL versions in `sql/grafana_*_postgres.sql`.
   Mind the Grafana `NUMERIC` gotcha documented in
   [`sql/grafana_radio_rates.sql`](sql/grafana_radio_rates.sql) — cast computed
@@ -144,9 +145,9 @@ you.
   PostgreSQL harder, since its 2-argument `ROUND` is `NUMERIC`-only.
 
 > **Minimum to see anything:** Velop + Kafka + Schema Registry — the watcher runs
-> and produces. Add Connect + CrateDB for persistence, then Grafana for
+> and produces. Add Connect + PostgreSQL for persistence, then Grafana for
 > visualisation. These can be co-located or spread across hosts (the author runs
-> Kafka/registry/Connect on one box and CrateDB on another).
+> Kafka/registry/Connect on one box and the database on another).
 
 ## Setup
 
@@ -163,10 +164,11 @@ All runtime settings come from environment variables (see `.env.example`).
 `.env` is gitignored — keep secrets there, not in source.
 
 > **The defaults below are the author's home setup** — the router at
-> `10.13.1.1` and Kafka/registry/CrateDB on hosts named `badger`/`endowment`.
-> Change them to match your own network. Likewise, the `connect/*.json` sink
-> configs ship `CHANGEME_CRATE_USER`/`CHANGEME_CRATE_PASSWORD` placeholders you
-> must set (see [`connect/`](connect/)). The router password is **never** stored
+> `10.13.1.1`, Kafka/registry/Connect on `badger` and PostgreSQL on
+> `endowment:5433`. Change them to match your own network. Likewise, the
+> `connect/*.json` sink configs ship `CHANGEME_PG_USER`/`CHANGEME_PG_PASSWORD`
+> (and `CHANGEME_CRATE_*`) placeholders you must set (see
+> [`connect/`](connect/)). The router password is **never** stored
 > in the repo — it is read from `VELOP_PASSWORD` at runtime only.
 
 | Variable          | Purpose                                  | Default                          |
@@ -182,8 +184,8 @@ All runtime settings come from environment variables (see `.env.example`).
 | `OUI_MANUF_URL`   | Where `velop-oui-update` downloads it    | Wireshark automated data URL     |
 
 > The watcher only produces to Kafka. The [`connect/`](connect/) Kafka Connect
-> JDBC sinks land the records in CrateDB over pg-wire; the `velop.*` tables must
-> exist first (`crash < sql/velop_schema.sql`).
+> JDBC sinks land the records in PostgreSQL; the `velop.*` tables must exist
+> first (`psql -f sql/velop_schema_postgres.sql`).
 
 ## Running
 
@@ -193,9 +195,9 @@ velop-oui-update              # one-time: fetch the Wireshark manuf vendor file
 velop-watcher                 # fetch one snapshot and produce it to Kafka
 ```
 
-Create the CrateDB tables once (`crash < sql/velop_schema.sql`) and install the
+Create the tables once (`psql -f sql/velop_schema_postgres.sql`) and install the
 Connect sinks (see [`connect/`](connect/)) so the produced records land in
-CrateDB. A missing `manuf` file is not fatal — the vendor columns just stay NULL
+PostgreSQL. A missing `manuf` file is not fatal — the vendor columns just stay NULL
 until you run `velop-oui-update`.
 
 ### Convenience wrapper
@@ -214,7 +216,7 @@ To run it as a service on a Raspberry Pi, see [`systemd/`](systemd/).
 Once the records are landing, the views in `sql/grafana_*.sql` (or
 `sql/grafana_*_postgres.sql`) drive Grafana panels. Import
 [`grafana/velop.json`](grafana/velop.json) to get the author's dashboard (point
-its PostgreSQL datasource at your CrateDB or PostgreSQL). Some example panels:
+its PostgreSQL datasource at your PostgreSQL or CrateDB). Some example panels:
 
 **Wired vs. wireless throughput** — total mesh WiFi against wired traffic
 ([`sql/grafana_wifi_vs_wired.sql`](sql/grafana_wifi_vs_wired.sql)).

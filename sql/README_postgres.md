@@ -1,10 +1,14 @@
 # PostgreSQL versions of the `sql/` DDL
 
+**These are the files the live deployment uses.** PostgreSQL at
+`endowment:5433/endowment_db` is the pipeline's target; the CrateDB sinks were
+retired on 2026-09-13.
+
 Every `sql/<name>.sql` targets CrateDB; its stock-PostgreSQL translation sits
 beside it as `sql/<name>_postgres.sql`. Same tables, same views, same column
-names and semantics — only the CrateDB-specific SQL differs. Use these to run
-the pipeline against PostgreSQL instead of (or alongside) CrateDB; the watcher
-itself is unaffected, since it only produces to Kafka.
+names and semantics — only the CrateDB-specific SQL differs. The CrateDB twins
+are kept for anyone running against Crate; the watcher itself is unaffected
+either way, since it only produces to Kafka.
 
 | File | What it creates |
 | --- | --- |

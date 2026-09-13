@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Fetch one Velop sysinfo snapshot and produce it to Kafka (Confluent-Avro).
-# The Connect JDBC sinks land it in CrateDB; this script never talks to CrateDB.
+# The Connect JDBC sinks land it in PostgreSQL; this script talks to no database.
 #
 # Usage: ./run-watcher.sh <VELOP_PASSWORD>
 #

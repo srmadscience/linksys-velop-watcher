@@ -4,9 +4,13 @@
 # velop sink connector files the script acts on. There are two, one per target
 # database, and they differ only in connection.url / credentials:
 #
+#   postgres  connect/velop-sink-<table>-postgres.json  -> PostgreSQL (5433)  [default]
 #   crate     connect/velop-sink-<table>.json           -> CrateDB   (pg-wire 5432)
-#   postgres  connect/velop-sink-<table>-postgres.json  -> PostgreSQL (5433)
 #   all       both
+#
+# PostgreSQL (endowment:5433/endowment_db) is THE live target. The CrateDB set
+# is kept for anyone pointing this at a Crate cluster, but it is no longer
+# deployed here and no longer the default — pass --target=crate to act on it.
 #
 # The connector NAMES differ too (crate-jdbc-sink-velop-* vs
 # postgres-jdbc-sink-velop-*), so both sets can run side by side against the
@@ -15,9 +19,9 @@
 #
 # Source this after setting HERE; it reads --target=<x> out of "$@" (leaving the
 # script's own flags alone) or VELOP_SINK_TARGET from the environment, defaults
-# to crate, and defines sink_files().
+# to postgres, and defines sink_files().
 
-SINK_TARGET="${VELOP_SINK_TARGET:-crate}"
+SINK_TARGET="${VELOP_SINK_TARGET:-postgres}"
 
 _sink_rest=()
 for _arg in "$@"; do

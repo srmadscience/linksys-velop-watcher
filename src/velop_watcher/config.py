@@ -42,7 +42,7 @@ class Config:
 
     # Kafka / Avro (Confluent wire format) -- the only sink. The structured tables
     # are produced as one topic each, "<prefix><table>"; raw_text dumps are never
-    # produced. Connect JDBC sinks land the records in CrateDB (see connect/).
+    # produced. Connect JDBC sinks land the records in PostgreSQL (see connect/).
     kafka_bootstrap: str = "badger:9092"
     schema_registry_url: str = "http://badger:8081"
     kafka_topic_prefix: str = "velop."

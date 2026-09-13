@@ -14,12 +14,20 @@ lookup. It also fetches each **satellite node's** sysinfo (radio counters are
 local to each node) and tags their radios by source node so WiFi throughput
 reflects the whole mesh, not just the master.
 
-**Kafka is the only sink.** The watcher does not talk to CrateDB; the Kafka
-Connect JDBC sinks in `connect/` land the records into the `velop.*` CrateDB
-tables (which must pre-exist — `sql/velop_schema.sql`). There is no raw_text
+**Kafka is the only sink, and PostgreSQL is the only target.** The watcher
+talks to no database at all; the Kafka Connect JDBC sinks in `connect/` land the
+records into the `velop.*` tables of **PostgreSQL at `endowment:5433/endowment_db`**
+(which must pre-exist — `sql/velop_schema_postgres.sql`). There is no raw_text
 archive any more (`velop.sysinfo`/`node_sysinfo` are gone): only the 11
-structured tables are produced. (History: the project used to write to CrateDB
-directly via the `crate` Python client; that path and the `VELOP_SINK`
+structured tables are produced.
+
+CrateDB is **legacy**. It was the original target, and `schema.py` still uses
+CrateDB types as its canonical vocabulary (PostgreSQL DDL is generated from
+them), but the `crate-jdbc-sink-velop-*` connectors were deleted from the
+Connect cluster on 2026-09-13 and nothing writes to `endowment:5432` any more.
+The CrateDB connector configs and `sql/*.sql` twins stay in the repo for anyone
+pointing this at a Crate cluster. (Earlier history: the project used to write to
+CrateDB directly via the `crate` Python client; that path and the `VELOP_SINK`
 crate/both modes were removed — the `crate` PyPI wheel is broken/empty on
 piwheels, which made it unusable on the Raspberry Pi target.)
 
@@ -111,17 +119,19 @@ editable install or with `src` on `PYTHONPATH`):
   CrateDB primary key) so a Connect sink upsert is stable on re-delivery.
   `confluent_kafka` is imported lazily inside `KafkaSink`. The matching JDBC
   sink connectors live in `connect/` (see `connect/README.md`) in **two sets** —
-  `velop-sink-<table>.json` (CrateDB, `crate-jdbc-sink-velop-*`) and
-  `velop-sink-<table>-postgres.json` (PostgreSQL, `postgres-jdbc-sink-velop-*`),
-  which can run side by side against the same topics. Helper scripts:
+  `velop-sink-<table>-postgres.json` (PostgreSQL, `postgres-jdbc-sink-velop-*`,
+  **the deployed set**) and `velop-sink-<table>.json` (CrateDB,
+  `crate-jdbc-sink-velop-*`, legacy/undeployed), which can run side by side
+  against the same topics. Helper scripts:
   `connect/install-sinks.sh` (idempotent register/update via
   `PUT /connectors/<name>/config`), `connect/restart-sinks.sh` (restart
   connectors+tasks; FAILED-only or `--all`), and `connect/status-sinks.sh` — all
   honour `CONNECT_URL` (default `http://badger:8083`), take
-  `--target=crate|postgres|all` (via the shared `connect/sink-files.sh`) and need
-  `curl` + `jq`. `install-sinks.sh` fills each `CHANGEME_<VAR>` placeholder from
-  `$<VAR>` (`CRATE_USER`/`CRATE_PASSWORD`, `PG_USER`/`PG_PASSWORD`) so no
-  credential is committed.
+  `--target=postgres|crate|all` — **default `postgres`** — (via the shared
+  `connect/sink-files.sh`) and need `curl` + `jq`. `install-sinks.sh` fills each
+  `CHANGEME_<VAR>` placeholder from `$<VAR>` (`PG_USER`/`PG_PASSWORD`,
+  `CRATE_USER`/`CRATE_PASSWORD`) so no credential is committed, and **refuses to
+  PUT a config that still contains a `CHANGEME_`** — see the outage note below.
   `KafkaSink` also exposes the store-and-forward seams the outbox uses:
   `kafka_up()` (probes BOTH broker via `list_topics` and registry via
   `GET /subjects` — both live on `badger` and go down together),
@@ -156,7 +166,7 @@ per-node `fetch_sysinfo_url(...)` + `parse_radio_stats` + `tag_radio_source`
 buffered snapshots then `KafkaSink.produce(...)`; if down, `outbox.buffer_snapshot(...)`
 to disk and exit 0 (the timer's next run drains it). Produce is Confluent-Avro,
 one topic per table. The Connect JDBC sinks in `connect/` carry the records into
-the `velop.*` CrateDB tables.
+the `velop.*` PostgreSQL tables on `endowment:5433`.
 
 ## Key facts and gotchas
 
@@ -194,26 +204,37 @@ the `velop.*` CrateDB tables.
   the views the whole query dies with *"cannot start subtransactions during a
   parallel operation"*. They are therefore plain `LANGUAGE sql` functions that
   validate with a regex first, which keeps them `PARALLEL SAFE`.
-- **The live PostgreSQL target is `endowment:5433/endowment_db`** (CrateDB is
-  `endowment:5432`), user `scott`. Both sink sets run on the same Connect
-  cluster (`badger:8083`). The pg sink URLs carry **`?stringtype=unspecified`**:
+- **The live target is PostgreSQL at `endowment:5433/endowment_db`**, user
+  `scott`, via the `postgres-jdbc-sink-velop-*` connectors on the Connect
+  cluster `badger:8083`. (CrateDB was `endowment:5432`; its sinks are gone.)
+  The pg sink URLs carry **`?stringtype=unspecified`**:
   the `OBJECT(IGNORED)`→`JSONB` columns arrive as JSON *strings* and PostgreSQL
   will not implicitly coerce `TEXT`→`JSONB`, so without it every `node`,
   `radio_stats`, `radio_config` and `lldp_neighbor` row fails.
-- **CrateDB is never reached by the watcher.** Records get there only via the
-  Kafka Connect JDBC sinks (`connect/`), over pg-wire (port 5432). The `velop.*`
-  tables must pre-exist — apply `sql/velop_schema.sql` (generated from
+- **No database is ever reached by the watcher.** Records get there only via
+  the Kafka Connect JDBC sinks (`connect/`). The `velop.*` tables must
+  pre-exist — apply `sql/velop_schema_postgres.sql` (generated from
   `schema.py`). The sinks run `auto.create=false` and `insert.mode=upsert` on
-  `id`. CrateDB lacks transactions/autoincrement, so the schema gives each row a
-  Python-generated UUID `id` and there is no multi-row atomicity.
+  `id`; each row's UUID `id` is Python-generated (`assign_ids`) because CrateDB,
+  the original target, had no autoincrement and no transactions — so there is
+  still no multi-row atomicity, by design.
+- **A FAILED sink task is silent, and a green watcher run proves nothing.**
+  `install-sinks.sh` only learned to substitute the `CHANGEME_*` credential
+  placeholders in #23; running the *older* script after #15 introduced them PUT
+  the literal `CHANGEME_CRATE_USER` into all 11 CrateDB connectors, every task
+  died with `FATAL: password authentication failed`, and CrateDB silently
+  received nothing from 2026-08-31 to 2026-09-13 while the watcher, Kafka and
+  the PostgreSQL sinks ran normally the whole time. After any install run
+  `./connect/status-sinks.sh`, and monitor `max(fetched_at)` in the database
+  rather than the watcher's exit code.
 - The completion marker is matched as a substring; in real output it appears as
   `**************** End of Sysinfo Output ******************`.
 - `sampleoutput.txt` is a full real dump (~4800 lines) — the reference for the
   page format and any future parsing work.
 - **Kafka/Avro is the only sink.** The 11 structured tables are produced to
   `badger:9092` as Confluent-Avro (schema registry `http://badger:8081`);
-  `connect/` holds one JDBC sink per topic that lands them in CrateDB over
-  pg-wire (5432). Records carry an `id` (`assign_ids`) and sinks `upsert` on it,
+  `connect/` holds one JDBC sink per topic that lands them in PostgreSQL
+  (`endowment:5433`). Records carry an `id` (`assign_ids`) and sinks `upsert` on it,
   so Kafka re-delivery never duplicates rows. Needs `confluent-kafka` (a core
   dependency now: `pip install -e .`).
   Two caveats: `OBJECT(IGNORED)` columns are produced as JSON strings (verify the

@@ -6,8 +6,8 @@
 # re-run, unlike POST /connectors).
 #
 # TARGET DATABASE (see connect/sink-files.sh):
-#   --target=crate      CrateDB      (default) — connect/velop-sink-<table>.json
-#   --target=postgres   PostgreSQL             — connect/velop-sink-<table>-postgres.json
+#   --target=postgres   PostgreSQL   (default) — connect/velop-sink-<table>-postgres.json
+#   --target=crate      CrateDB                — connect/velop-sink-<table>.json
 #   --target=all        both at once
 #
 # CREDENTIALS are NOT committed. The connector configs carry CHANGEME_<VAR>
@@ -23,7 +23,7 @@
 #      the sinks start consuming.
 #
 # Usage:
-#   PG_USER=scott PG_PASSWORD=... ./connect/install-sinks.sh --target=postgres
+#   PG_USER=scott PG_PASSWORD=... ./connect/install-sinks.sh
 #   CONNECT_URL=http://my-connect:8083 ./connect/install-sinks.sh
 #
 set -euo pipefail
@@ -50,6 +50,15 @@ fill_placeholders() {
     val="$(jq -rn --arg v "$val" '$v | @json | .[1:-1]')"
     body="${body//${ph}/${val}}"
   done
+  # Never let a placeholder reach the cluster. An earlier version of this script
+  # did no substitution at all and PUT the literal CHANGEME_CRATE_USER into the
+  # live connectors; every task died with "password authentication failed for
+  # user \"CHANGEME_CRATE_USER\"" and, because a FAILED task is silent unless
+  # you poll for it, the sink stayed down for thirteen days.
+  if grep -q 'CHANGEME_' <<<"$body"; then
+    echo "error: config still contains $(grep -o 'CHANGEME_[A-Z_]*' <<<"$body" | sort -u | tr '\n' ' ')after substitution" >&2
+    return 1
+  fi
   printf '%s' "$body"
 }
 

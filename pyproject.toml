@@ -1,7 +1,7 @@
 [project]
 name = "linksys-velop-watcher"
 version = "0.1.0"
-description = "Fetch and archive Linksys Velop sysinfo.cgi output into CrateDB"
+description = "Fetch Linksys Velop sysinfo.cgi output and produce it to Kafka as Avro"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [

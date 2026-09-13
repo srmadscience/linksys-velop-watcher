@@ -70,7 +70,8 @@ sudo systemctl disable --now velop-watcher.timer   # pause scheduling
   `run-watcher.sh`.
 - Each run produces Avro to Kafka for the `connect/` JDBC sinks (Kafka is the
   only sink). Make sure those sinks are installed (`connect/install-sinks.sh`)
-  and the `velop.*` CrateDB tables exist (`crash < sql/velop_schema.sql`).
+  and the `velop.*` PostgreSQL tables exist
+  (`psql -f sql/velop_schema_postgres.sql`).
 - **Store-and-forward buffer:** if Kafka/registry are unreachable, a run buffers
   the snapshot to `<repo>/buffer/` (`run-watcher.sh` pins `VELOP_BUFFER_DIR` to an
   absolute path) and exits cleanly; the next timer tick replays it (and gzips the
