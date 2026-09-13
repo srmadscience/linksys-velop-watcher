@@ -20,6 +20,7 @@ either way, since it only produces to Kafka.
 | [`grafana_ip_neighbors_postgres.sql`](grafana_ip_neighbors_postgres.sql) | `velop.v_ip_neighbor` |
 | [`grafana_device_wlan_postgres.sql`](grafana_device_wlan_postgres.sql) | no view — panel queries only, so applying it is a no-op |
 | [`grafana_backhaul_postgres.sql`](grafana_backhaul_postgres.sql) | no view — node-to-node backhaul panel queries only, so applying it is a no-op |
+| [`grafana_feed_staleness_postgres.sql`](grafana_feed_staleness_postgres.sql) | no view — the one query behind the feed-staleness alert |
 
 Every file is safe to run with `psql -f`: the DDL is `CREATE ... IF NOT EXISTS` /
 `CREATE OR REPLACE`, and the Grafana panel queries at the bottom of each file are
@@ -122,6 +123,39 @@ Likewise, a template variable pinned to a single snapshot
 *that* snapshot: on 2026-09-13 that hid two of five routers for a full hour.
 `SELECT DISTINCT … WHERE fetched_at > now() - interval '24 hours' AND col IS NOT
 NULL` costs 0.2 ms more and does not flicker.
+
+## Monitoring: alert on row age, not on components
+
+[`grafana_feed_staleness_postgres.sql`](grafana_feed_staleness_postgres.sql) and
+[`../grafana/alerts/velop-feed-staleness.yaml`](../grafana/alerts/velop-feed-staleness.yaml)
+add one alert: *how old is the newest row?*
+
+That framing is deliberate. This pipeline has stopped silently twice, and
+component-level checks would have caught neither — in both cases everything
+anyone would have thought to monitor looked healthy:
+
+| Outage | Duration | What looked fine |
+| --- | --- | --- |
+| CrateDB sinks FAILED on `CHANGEME_*` credentials | **13 days** | watcher exit 0, Kafka producing, connectors present, topics filling |
+| Pi's Ethernet link down at boot | **4d 18h** | timer firing ~680 times on schedule, service enabled, sinks RUNNING |
+
+Row age makes no assumption about *which* component broke, so it catches both —
+and whatever fails next. Checked against the real history, with a 30-minute
+threshold (three missed 10-minute ticks):
+
+```
+now (healthy)              4.2 min   ok
+1 hour after a stop       38.9 min   FIRING
+mid Pi outage, 3 Sep     2601.4 min  FIRING
+```
+
+Two details in that rule are load-bearing rather than stylistic. `noDataState:
+Alerting` — "the query returned nothing" must itself fire, or an empty result
+becomes another silent failure. And the `::DOUBLE PRECISION` cast: on
+PostgreSQL 13 `extract()` already returns double precision, but **on 14+ it
+returns `NUMERIC`, which Grafana silently drops** (see below) — so a routine
+server upgrade would otherwise quietly disable the monitoring that exists
+because things fail quietly.
 
 ## Gotchas that carry over — and one that gets worse
 

@@ -1,0 +1,92 @@
+# Grafana unified-alerting provisioning: fire when the velop feed stops.
+#
+# Drop this in Grafana's provisioning directory (e.g.
+# /etc/grafana/provisioning/alerting/) and restart Grafana, or paste the query
+# and threshold into a new alert rule in the UI. The rule is deliberately
+# minimal: ONE number -- how old the newest row in the database is.
+#
+# WHY: the pipeline has died silently twice, and component-level health checks
+# would have caught neither.
+#   * 13 days (2026-08-31 -> 09-13): CrateDB sinks FAILED on bad credentials.
+#     Watcher green, Kafka green, connectors present, topics filling.
+#   * 4d 18h (2026-09-01 -> 09-06): the Pi's Ethernet link was down. The timer
+#     fired ~680 times and every run died before producing anything.
+# Row age is the one signal that makes no assumption about WHICH component
+# broke, so it catches both -- and the next one.
+#
+# BEFORE APPLYING, replace CHANGEME_DATASOURCE_UID with the UID of your
+# PostgreSQL datasource. Find it with:
+#   curl -s -H "Authorization: Bearer $GRAFANA_TOKEN" \
+#        "$GRAFANA_URL/api/datasources" | jq -r '.[] | [.uid,.name,.type] | @tsv'
+# (The repo convention is CHANGEME_* placeholders so nothing environment-
+# specific is committed -- same as connect/*.json.)
+apiVersion: 1
+groups:
+  - orgId: 1
+    name: velop-pipeline
+    folder: Velop
+    # Evaluate every 5 min; the watcher produces every 10 (VELOP_INTERVAL).
+    interval: 5m
+    rules:
+      - uid: velop-feed-stale
+        title: Velop feed is stale
+        condition: THRESHOLD
+        # noDataState: Alerting is REQUIRED, not a default worth overriding.
+        # "The query returned nothing" is itself a failure here -- an empty
+        # table, an unreachable datasource, or a Grafana NUMERIC conversion
+        # dropping the column all produce No Data. Treating that as OK would
+        # reproduce the exact class of silent failure this rule exists to catch.
+        noDataState: Alerting
+        execErrState: Alerting
+        # Two consecutive 5-min evaluations above threshold before firing, so a
+        # single slow snapshot (the CGI is slow and satellite fetches are
+        # sequential) does not page anyone.
+        for: 10m
+        annotations:
+          summary: >-
+            No new Velop snapshot for {{ $values.QUERY.Value }} minutes.
+          description: >-
+            velop.system has received no rows recently. Check, in order:
+            (1) the Pi -- systemctl status velop-watcher.timer, and
+            journalctl -u velop-watcher.service -n 50 (a dead NIC shows as
+            "Errno 101 Network is unreachable");
+            (2) the sinks -- ./connect/status-sinks.sh, since a FAILED task is
+            silent;
+            (3) Kafka/registry on badger, which the watcher probes with
+            kafka_up() and buffers to VELOP_BUFFER_DIR when down.
+        labels:
+          service: velop
+          severity: warning
+        data:
+          - refId: QUERY
+            # from/to 0 = "now"; the query does its own time arithmetic and must
+            # not be narrowed by a dashboard range.
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: CHANGEME_DATASOURCE_UID
+            model:
+              refId: QUERY
+              format: table
+              editorMode: code
+              rawQuery: true
+              # Keep in sync with sql/grafana_feed_staleness_postgres.sql.
+              # The ::DOUBLE PRECISION cast is load-bearing on PostgreSQL 14+,
+              # where extract() returns NUMERIC and Grafana silently drops
+              # NUMERIC columns -- which would turn this into an alert that can
+              # never fire.
+              rawSql: |
+                SELECT (extract(epoch from (now() - max(fetched_at))) / 60)::DOUBLE PRECISION
+                         AS staleness_mins
+                FROM velop.system;
+          - refId: THRESHOLD
+            datasourceUid: __expr__
+            model:
+              refId: THRESHOLD
+              type: threshold
+              expression: QUERY
+              conditions:
+                - evaluator:
+                    # 30 min = three consecutive missed 10-minute ticks.
+                    type: gt
+                    params: [30]
