@@ -1,0 +1,59 @@
+-- grafana_feed_staleness_postgres.sql (PostgreSQL)
+--
+-- "Is data still arriving?" -- the single query behind the feed-staleness alert
+-- (grafana/alerts/velop-feed-staleness.yaml). CrateDB twin:
+-- sql/grafana_feed_staleness.sql.
+--
+-- WHY THIS EXISTS: the pipeline has failed silently twice, and in both cases
+-- every individual component looked healthy.
+--
+--   * 2026-08-31 -> 2026-09-13 (13 days). The CrateDB sink connectors were
+--     re-registered with unsubstituted CHANGEME_* credentials. All 11 tasks sat
+--     FAILED with "password authentication failed", which nothing polls, while
+--     the watcher, Kafka and the PostgreSQL sinks ran perfectly.
+--   * 2026-09-01 -> 2026-09-06 (4d 18h). The Pi's Ethernet link went down at
+--     boot. The systemd timer fired ~680 times, every run died with
+--     "Errno 101 Network is unreachable", and nothing was produced at all.
+--
+-- Neither was detectable from the watcher's exit code, the connectors' presence,
+-- or the topics existing. The one signal that would have caught BOTH -- and any
+-- future cause, since it makes no assumption about which component broke -- is
+-- the age of the newest row in the database. That is all this query measures.
+--
+-- WHY velop.system: it gets a handful of rows on every snapshot, always, from
+-- the master alone if every satellite is unreachable. Tables like wlan_client
+-- can legitimately be empty (no associated clients), which would produce a false
+-- alert.
+--
+-- THE ::DOUBLE PRECISION CAST IS LOAD-BEARING. On PostgreSQL 13 (the current
+-- target) extract() already returns double precision and the cast is a no-op.
+-- On PostgreSQL 14+ extract() returns NUMERIC -- and Grafana's PostgreSQL frame
+-- converter SILENTLY DROPS NUMERIC columns, returning an empty frame with HTTP
+-- 200 and no error (see sql/grafana_radio_rates.sql and CLAUDE.md). An alert
+-- whose query returns no data is an alert that never fires, so a routine server
+-- upgrade would quietly disable exactly the monitoring that was added because
+-- things fail quietly. Keep the cast.
+--
+-- The alert rule sets noDataState: Alerting for the same reason: "the query
+-- returned nothing" must be a firing state, not a silent one.
+
+SELECT (extract(epoch from (now() - max(fetched_at))) / 60)::DOUBLE PRECISION
+         AS staleness_mins
+FROM velop.system;
+
+-- Expected value in normal operation: 0-10, since the Pi's timer runs every
+-- VELOP_INTERVAL (default 10 min). The alert threshold of 30 minutes allows
+-- three consecutive missed ticks before firing.
+--
+-- Per-node variant -- catches "the feed is alive but node X stopped reporting",
+-- which is how the 401s on 10.13.1.7 / .9 showed up in Sep 2026. Noisier: a
+-- satellite that drops out for one snapshot is normal, so alert on this only
+-- with a long `for:` duration, if at all.
+--
+-- SELECT source_node_name,
+--        (extract(epoch from (now() - max(fetched_at))) / 60)::DOUBLE PRECISION
+--          AS staleness_mins
+-- FROM velop.system
+-- WHERE source_node_name IS NOT NULL
+-- GROUP BY source_node_name
+-- ORDER BY staleness_mins DESC;

@@ -807,45 +807,6 @@
                     "refId": "A",
                     "hidden": false
                   }
-                },
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "grafana-postgresql-datasource",
-                      "version": "v0",
-                      "spec": {
-                        "dataset": "doc",
-                        "editorMode": "code",
-                        "format": "table",
-                        "rawQuery": true,
-                        "rawSql": "SELECT  fetched_at, node_ip||' -> '||parent_ip ||' via '|| intf route,  rssi\nFROM \"velop\".\"backhaul\"\nWHERE state = 'up' and chan != 'wired'\nORDER BY fetched_at desc;",
-                        "sql": {
-                          "columns": [
-                            {
-                              "parameters": [],
-                              "type": "function"
-                            }
-                          ],
-                          "groupBy": [
-                            {
-                              "property": {
-                                "type": "string"
-                              },
-                              "type": "groupBy"
-                            }
-                          ],
-                          "limit": 50
-                        }
-                      },
-                      "labels": {
-                        "grafana.app/export-label": "grafana-postgresql-datasource-1"
-                      }
-                    },
-                    "refId": "B",
-                    "hidden": true
-                  }
                 }
               ],
               "transformations": [
@@ -1194,45 +1155,6 @@
                     },
                     "refId": "A",
                     "hidden": false
-                  }
-                },
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "grafana-postgresql-datasource",
-                      "version": "v0",
-                      "spec": {
-                        "dataset": "doc",
-                        "editorMode": "code",
-                        "format": "table",
-                        "rawQuery": true,
-                        "rawSql": "SELECT  fetched_at, node_ip||' -> '||parent_ip ||' via '|| intf route,  rssi\nFROM \"velop\".\"backhaul\"\nWHERE state = 'up' and chan != 'wired'\nORDER BY fetched_at desc;",
-                        "sql": {
-                          "columns": [
-                            {
-                              "parameters": [],
-                              "type": "function"
-                            }
-                          ],
-                          "groupBy": [
-                            {
-                              "property": {
-                                "type": "string"
-                              },
-                              "type": "groupBy"
-                            }
-                          ],
-                          "limit": 50
-                        }
-                      },
-                      "labels": {
-                        "grafana.app/export-label": "grafana-postgresql-datasource-1"
-                      }
-                    },
-                    "refId": "B",
-                    "hidden": true
                   }
                 }
               ],
@@ -2023,45 +1945,6 @@
                     "refId": "A",
                     "hidden": false
                   }
-                },
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "grafana-postgresql-datasource",
-                      "version": "v0",
-                      "spec": {
-                        "dataset": "doc",
-                        "editorMode": "code",
-                        "format": "table",
-                        "rawQuery": true,
-                        "rawSql": "SELECT  fetched_at, node_ip||' -> '||parent_ip ||' via '|| intf route,  rssi\nFROM \"velop\".\"backhaul\"\nWHERE state = 'up' and chan != 'wired'\nORDER BY fetched_at desc;",
-                        "sql": {
-                          "columns": [
-                            {
-                              "parameters": [],
-                              "type": "function"
-                            }
-                          ],
-                          "groupBy": [
-                            {
-                              "property": {
-                                "type": "string"
-                              },
-                              "type": "groupBy"
-                            }
-                          ],
-                          "limit": 50
-                        }
-                      },
-                      "labels": {
-                        "grafana.app/export-label": "grafana-postgresql-datasource-1"
-                      }
-                    },
-                    "refId": "B",
-                    "hidden": true
-                  }
                 }
               ],
               "transformations": [
@@ -2580,7 +2463,7 @@
               "format": "table",
               "query": "SELECT ip\nFROM \"velop\".\"device\"\nWHERE ip IS NOT NULL\nAND conn = 'Wi-Fi'\nGROUP BY ip\nORDER BY ip",
               "rawQuery": true,
-              "rawSql": "SELECT ip\nFROM \"velop\".\"device\"\nWHERE ip IS NOT NULL\nAND conn = 'Wi-Fi'\nGROUP BY ip\nORDER BY ip",
+              "rawSql": "SELECT DISTINCT ip\nFROM \"velop\".\"device\"\nWHERE ip IS NOT NULL\nAND conn = 'Wi-Fi'\nAND fetched_at > now() - interval '7 days'\nORDER BY ip",
               "refId": "SQLVariableQueryEditor-VariableQuery",
               "sql": {
                 "columns": [
