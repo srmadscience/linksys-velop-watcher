@@ -331,6 +331,24 @@ def test_tag_node_source_stamps_system_rows(dump):
         assert r["source_role"] == "slave"
 
 
+def test_tag_node_source_stamps_nic_counter_rows(dump):
+    """NIC counters are per-node too: the master dump only carries the master's
+    own interfaces, so a satellite's Ethernet counters -- the only evidence in
+    the data of whether its wired uplink is actually live -- are missing unless
+    each node's own dump is parsed and tagged."""
+    rows = parse.parse_nic_counters(dump)
+    node = {"mac": "C4:41:1E:EC:48:88", "name": "LINKSYS_return1",
+            "ip": "10.13.1.6", "role": "slave"}
+    tagged = parse.tag_node_source(rows, node)
+    assert tagged is rows
+    assert rows  # the sample dump has NIC counters
+    for r in rows:
+        assert r["source_node_mac"] == "C4:41:1E:EC:48:88"
+        assert r["source_node_name"] == "LINKSYS_return1"
+        assert r["source_node_ip"] == "10.13.1.6"
+        assert r["source_role"] == "slave"
+
+
 # --------------------------------------------------------------------------
 # athN Settings -> radio_config (Tier 6)
 # --------------------------------------------------------------------------

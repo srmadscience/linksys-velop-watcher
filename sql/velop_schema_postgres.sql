@@ -178,7 +178,11 @@ CREATE TABLE IF NOT EXISTS velop.nic_counter (
     fetched_at TIMESTAMPTZ,
     intf TEXT,
     rx_bytes BIGINT,
-    tx_bytes BIGINT
+    tx_bytes BIGINT,
+    source_node_mac TEXT,
+    source_node_name TEXT,
+    source_node_ip TEXT,
+    source_role TEXT
 );
 
 CREATE TABLE IF NOT EXISTS velop.system (

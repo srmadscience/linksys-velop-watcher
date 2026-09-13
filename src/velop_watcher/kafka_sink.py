@@ -113,6 +113,8 @@ TABLE_SPECS: list[TableSpec] = [
     ]),
     TableSpec("nic_counters", "nic_counter", [
         ("intf", "str"), ("rx_bytes", "long"), ("tx_bytes", "long"),
+        ("source_node_mac", "str"), ("source_node_name", "str"),
+        ("source_node_ip", "str"), ("source_role", "str"),
     ]),
     TableSpec("system", "system", [
         ("uptime_secs", "long"), ("load_1", "double"), ("load_5", "double"),

@@ -80,6 +80,8 @@ TABLES: dict[str, list[tuple[str, str]]] = {
     ],
     "nic_counter": [
         ("intf", "TEXT"), ("rx_bytes", "BIGINT"), ("tx_bytes", "BIGINT"),
+        ("source_node_mac", "TEXT"), ("source_node_name", "TEXT"),
+        ("source_node_ip", "TEXT"), ("source_role", "TEXT"),
     ],
     "system": [
         ("uptime_secs", "BIGINT"), ("load_1", "DOUBLE"), ("load_5", "DOUBLE"),
