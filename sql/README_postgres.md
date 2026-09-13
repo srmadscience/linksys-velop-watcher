@@ -19,6 +19,7 @@ either way, since it only produces to Kafka.
 | [`grafana_node_wifi_postgres.sql`](grafana_node_wifi_postgres.sql) | `velop.v_node_wifi_rates` |
 | [`grafana_ip_neighbors_postgres.sql`](grafana_ip_neighbors_postgres.sql) | `velop.v_ip_neighbor` |
 | [`grafana_device_wlan_postgres.sql`](grafana_device_wlan_postgres.sql) | no view — panel queries only, so applying it is a no-op |
+| [`grafana_backhaul_postgres.sql`](grafana_backhaul_postgres.sql) | no view — node-to-node backhaul panel queries only, so applying it is a no-op |
 
 Every file is safe to run with `psql -f`: the DDL is `CREATE ... IF NOT EXISTS` /
 `CREATE OR REPLACE`, and the Grafana panel queries at the bottom of each file are
@@ -60,12 +61,67 @@ which a one-row-per-series snapshot never produces).
 | `ARRAY(TEXT)` | `TEXT[]` (`device.extra_macs`, `extra_macs_vendor`) |
 | `OBJECT(IGNORED)` | `JSONB` (`node.devinfo`, `radio_stats.stats`, …) |
 | `fetched_at::BIGINT` (epoch-ms) | `velop.epoch_ms(fetched_at)` |
+| `fetched_at BETWEEN ${__from} AND ${__to}` | `velop.epoch_ms(fetched_at) BETWEEN …` |
 | `stats['tx_data_bytes']` | `stats->>'tx_data_bytes'` |
 | `TRY_CAST(x AS BIGINT)` | `velop.try_bigint(x)` (also `try_double`) |
 | everything indexed by default | explicit indexes (`PG_INDEXES` in `schema.py`) |
 
 The three helper functions are created by `velop_schema.sql`, so apply it before
 any view. `epoch_ms` is `IMMUTABLE`, so it can be indexed if a panel needs it.
+
+## Porting a Grafana panel: four traps the error message won't tell you about
+
+Everything above is a *type* translation — PostgreSQL raises a clear error and
+you fix it. These four are different: three produce a blank or wrong panel with
+no error at all, and all four were found only by running the panels against a
+live database. They cost six panels on the author's dashboard.
+
+**1. The time filter (hard error, hits every panel).** Grafana expands
+`${__from}`/`${__to}` to epoch-**milliseconds integers**. CrateDB stores
+timestamps as longs and compares the two implicitly; PostgreSQL refuses:
+
+```
+ERROR:  operator does not exist: timestamp with time zone >= bigint
+ERROR:  cannot cast type timestamp with time zone to bigint   -- the ::BIGINT form
+```
+
+Wrap the column, never the macro: `velop.epoch_ms(fetched_at) BETWEEN ${__from}
+AND ${__to}`. Both CrateDB spellings map to the same helper.
+
+**2. Inner joins onto a column that can hold a sentinel (silent blank panel).**
+`velop.backhaul.parent_ip` is the literal string `'Unknown'` whenever the master
+cannot resolve a wireless link — all of 23–29 Aug 2026, most of 12 Sep,
+intermittently since. A comma-join to `velop.node` is an INNER join, so every
+wireless row disappears and the panel renders empty. Use `LEFT JOIN` +
+`COALESCE(p.name, bh.parent_ip)` so a degraded mesh reads as
+`Unknown <-> Dadroom` rather than nothing. See
+[`grafana_backhaul_postgres.sql`](grafana_backhaul_postgres.sql).
+
+**3. `LEFT JOIN` + `CASE … ELSE` (silent WRONG panel — the dangerous one).**
+`NULL >= -50` evaluates to NULL, not FALSE, so every `WHEN` falls through and the
+`ELSE` branch absorbs every unmatched row. An RSSI-distribution panel built this
+way reported **4,742 "Poor" readings of which only 24 were real** — the other
+4,718 were printers and light bulbs with no signal strength at all. It looks
+entirely plausible and never errors. Either join inner, or make
+`WHEN x IS NULL THEN 'n/a'` the first branch. Never let `ELSE` be the NULL bucket.
+
+**4. TEXT columns holding numbers, and MAC case (silent empty series).**
+`backhaul.rssi` is TEXT and **empty unless the link state is `'up'`** (0 of
+14,767 `down` rows carry a value, against 284 of 1,130 `up` rows) — wrap it in
+`velop.try_bigint()`, which yields NULL and draws a gap. `wlan_client.rssi` is a
+real `INTEGER` and needs nothing. Separately, `wlan_client.client_mac` is always
+lowercase but `device.mac` is mixed (564 of 39,150 rows uppercase in a two-day
+sample), so **always `lower()` both sides** of a MAC comparison; a bare equality
+works until the first uppercase MAC associates, then returns an empty graph.
+
+**And one that is not a dialect issue at all:** bound every panel by the
+dashboard time range. A `velop.backhaul` query with no time filter seq-scans the
+table — ~26 ms and 2,600+ buffers today, growing forever — on every refresh.
+Likewise, a template variable pinned to a single snapshot
+(`WHERE fetched_at = (SELECT max(fetched_at) …)`) drops any node that missed
+*that* snapshot: on 2026-09-13 that hid two of five routers for a full hour.
+`SELECT DISTINCT … WHERE fetched_at > now() - interval '24 hours' AND col IS NOT
+NULL` costs 0.2 ms more and does not flicker.
 
 ## Gotchas that carry over — and one that gets worse
 

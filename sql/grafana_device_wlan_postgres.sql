@@ -97,3 +97,54 @@
 --         WHERE velop.epoch_ms(fetched_at) <= ${__to}
 --       )
 -- ORDER BY name;
+
+
+-- ===========================================================================
+-- RSSI Distribution (Time series / bar chart: client count per signal band)
+-- ===========================================================================
+-- CAREFUL -- this one is why the join below is an INNER join, not a LEFT join.
+-- w.rssi is NULL for every device that is not a currently-associated Wi-Fi
+-- client, and in SQL `NULL >= -50` is NULL, not FALSE. So with a LEFT JOIN
+-- every WHEN falls through and `ELSE 'Poor'` silently swallows the lot: over a
+-- 6-hour window that produced 4,742 "Poor" readings of which only 24 were real
+-- weak signals -- a confident, plausible, completely wrong panel that never
+-- raises an error. Join inner so ELSE only ever sees genuine weak signal.
+--
+-- To show the non-Wi-Fi devices as their own category instead, switch back to a
+-- LEFT JOIN and make `WHEN w.rssi IS NULL THEN 'Not on Wi-Fi'` the FIRST branch.
+-- SELECT d.fetched_at AS "time",
+--        CASE
+--          WHEN w.rssi >= -50 THEN 'Excellent'
+--          WHEN w.rssi >= -60 THEN 'Very good'
+--          WHEN w.rssi >= -67 THEN 'Good'
+--          WHEN w.rssi >= -70 THEN 'Marginal'
+--          ELSE 'Poor'
+--        END      AS rssi_band,
+--        count(*) AS rssi_count
+-- FROM velop.device d
+-- JOIN velop.wlan_client w
+--   ON w.snapshot_id = d.snapshot_id
+--  AND lower(w.client_mac) = lower(d.mac)
+-- WHERE velop.epoch_ms(d.fetched_at) BETWEEN ${__from} AND ${__to}
+-- GROUP BY d.fetched_at, rssi_band
+-- ORDER BY "time" ASC, rssi_band;
+
+
+-- ===========================================================================
+-- RSSI for one device ($ip template variable)
+-- ===========================================================================
+-- The lower() on BOTH sides is load-bearing: wlan_client.client_mac is always
+-- lowercase, but device.mac is mixed (564 of 39,150 rows uppercase over a
+-- two-day sample, e.g. D8:EC:5E:8E:ED:9E). A bare MAC equality happens to work
+-- while every associated client has a lowercase MAC, then silently returns an
+-- empty graph the day one does not.
+--
+-- '$ip' assumes a single-value variable. For multi-value or "All", drop the
+-- quotes and use IN (${ip:sqlstring}).
+-- SELECT wc.fetched_at, wc.client_mac, wc.rssi
+-- FROM velop.wlan_client wc
+-- WHERE lower(wc.client_mac) IN (
+--         SELECT DISTINCT lower(mac) FROM velop.device WHERE ip = '$ip'
+--       )
+--   AND velop.epoch_ms(wc.fetched_at) BETWEEN ${__from} AND ${__to}
+-- ORDER BY wc.fetched_at;

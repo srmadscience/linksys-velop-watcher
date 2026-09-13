@@ -1,0 +1,86 @@
+-- grafana_backhaul.sql (CrateDB)
+--
+-- Node-to-node backhaul panels: how each mesh node reaches its parent, over
+-- what interface/channel, at what speed, and -- wireless only -- at what RSSI.
+-- No DDL here; these are flat panel queries, not a view. The stock-PostgreSQL
+-- twin is sql/grafana_backhaul_postgres.sql. Change a query in BOTH files.
+--
+-- WHAT THIS SHOWS:
+--   velop.backhaul has one row per non-master node per snapshot, describing that
+--   node's uplink: node_ip (the child), parent_ip (what it connects through),
+--   intf (eth1 / 5GL / 5GH), chan ('wired' or a channel number), state, speed
+--   and rssi. Joining velop.node twice -- once on parent_ip, once on node_ip --
+--   turns a pair of IPs into "Hall <-> Dadroom via 5GH/100".
+--
+-- THREE THINGS THAT BITE (both dialects):
+--
+--   1. parent_ip is the literal string 'Unknown' whenever the master cannot
+--      resolve a wireless link. That is not rare: all of 23-29 Aug 2026, most of
+--      12 Sep, and intermittently since. A comma-join (implicit INNER join) to
+--      velop.node therefore drops EVERY wireless row and the panel silently goes
+--      blank. LEFT JOIN + COALESCE degrades to "Unknown <-> Dadroom" instead,
+--      which at least shows the link exists but is unresolved. Wired rows have
+--      never carried 'Unknown' (0 of 25,848), but are written the same way so
+--      the three queries stay copy-paste consistent.
+--
+--   2. rssi is a TEXT column and is EMPTY unless the link state is 'up':
+--      0 of 14,767 'down' rows carry a value, against 284 of 1,130 'up' rows.
+--      Cast it rather than plotting it raw, and expect NULLs -- drawn as gaps --
+--      whenever a link is down. A mesh that has gone all-wired shows an empty
+--      RSSI panel, which is correct, not broken.
+--
+--   3. Always bound the query by the dashboard time range. A backhaul query with
+--      no time filter seq-scans the whole table -- ~26ms and 2,600+ buffers
+--      today, growing forever -- on every single refresh.
+--
+-- NOTE: every panel query below is COMMENTED OUT on purpose. ${__from} /
+-- ${__to} are Grafana macros, not SQL, so an uncommented panel query makes this
+-- file fail under a plain SQL client. Copy one into a panel and drop the `-- `.
+
+-- ===========================================================================
+-- Node to Node Wireless Traffic Speed (Time series; route is the series label)
+-- ===========================================================================
+-- SELECT bh.fetched_at,
+--        COALESCE(p.name, bh.parent_ip) || ' <-> ' || COALESCE(c.name, bh.node_ip)
+--          || ' via ' || bh.intf || '/' || bh.chan || ' (' || bh.state || ')' AS route,
+--        bh.speed
+-- FROM velop.backhaul bh
+-- LEFT JOIN velop.node p ON p.snapshot_id = bh.snapshot_id AND p.ip = bh.parent_ip
+-- LEFT JOIN velop.node c ON c.snapshot_id = bh.snapshot_id AND c.ip = bh.node_ip
+-- WHERE bh.chan <> 'wired'
+--   AND bh.fetched_at::BIGINT BETWEEN ${__from} AND ${__to}
+-- ORDER BY bh.fetched_at DESC;
+
+
+-- ===========================================================================
+-- Node to Node Wired Traffic Speed
+-- ===========================================================================
+-- SELECT bh.fetched_at,
+--        COALESCE(p.name, bh.parent_ip) || ' <-> ' || COALESCE(c.name, bh.node_ip)
+--          || ' via ' || bh.intf || '/' || bh.chan AS route,
+--        bh.speed
+-- FROM velop.backhaul bh
+-- LEFT JOIN velop.node p ON p.snapshot_id = bh.snapshot_id AND p.ip = bh.parent_ip
+-- LEFT JOIN velop.node c ON c.snapshot_id = bh.snapshot_id AND c.ip = bh.node_ip
+-- WHERE bh.chan = 'wired'
+--   AND bh.fetched_at::BIGINT BETWEEN ${__from} AND ${__to}
+-- ORDER BY bh.fetched_at DESC;
+
+
+-- ===========================================================================
+-- Node to Node Traffic RSSI (wireless only; NULL -> gap while a link is down)
+-- ===========================================================================
+-- SELECT bh.fetched_at,
+--        COALESCE(p.name, bh.parent_ip) || ' <-> ' || COALESCE(c.name, bh.node_ip)
+--          || ' via ' || bh.intf || '/' || bh.chan AS route,
+--        TRY_CAST(bh.rssi AS BIGINT) AS rssi
+-- FROM velop.backhaul bh
+-- LEFT JOIN velop.node p ON p.snapshot_id = bh.snapshot_id AND p.ip = bh.parent_ip
+-- LEFT JOIN velop.node c ON c.snapshot_id = bh.snapshot_id AND c.ip = bh.node_ip
+-- WHERE bh.chan <> 'wired'
+--   AND bh.fetched_at::BIGINT BETWEEN ${__from} AND ${__to}
+-- ORDER BY bh.fetched_at DESC;
+--
+-- Add `AND bh.state = 'up'` to drop dead links entirely rather than carrying
+-- them as NULL rows -- a judgement call about whether an absent link should
+-- read as a gap or vanish.
