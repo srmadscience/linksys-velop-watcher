@@ -3,7 +3,7 @@
   "kind": "Dashboard",
   "metadata": {
     "name": "adp5868",
-    "generation": 16,
+    "generation": 51,
     "creationTimestamp": "2026-06-27T18:19:24Z",
     "labels": {},
     "annotations": {}
@@ -762,7 +762,7 @@
         "kind": "Panel",
         "spec": {
           "id": 39,
-          "title": "Node to Node Traffic Speed",
+          "title": "Node to Node Wireless Traffic Speed",
           "description": "",
           "links": [],
           "data": {
@@ -781,7 +781,7 @@
                         "editorMode": "code",
                         "format": "table",
                         "rawQuery": true,
-                        "rawSql": "SELECT  bh.fetched_at, p.name||' <-> '||c.name ||' via '|| bh.intf ||'/'||bh.chan route, bh.speed\nFROM \"velop\".\"backhaul\" bh\n   , \"velop\".\"node\" p\n   , \"velop\".\"node\" c\nWHERE  bh.chan != 'wired'\nAND   bh.fetched_at BETWEEN ${__from} AND ${__to}\nAND   bh.snapshot_id = p.snapshot_id\nAND   bh.snapshot_id = c.snapshot_id\nAND   bh.parent_ip = p.ip\nAND   bh.node_ip = c.ip\nORDER BY bh.fetched_at desc;",
+                        "rawSql": "  SELECT bh.fetched_at,                                                                                                                                                                                                           \n         COALESCE(p.name, bh.parent_ip) || ' <-> ' || COALESCE(c.name, bh.node_ip)                                                                                                                                                \n           || ' via ' || bh.intf || '/' || bh.chan || ' (' || bh.state || ')' AS route,                                                                                                                                           \n         bh.speed                                                                                                                                                                                                                 \n  FROM velop.backhaul bh                                                                                                                                                                                                          \n  LEFT JOIN velop.node p ON p.snapshot_id = bh.snapshot_id AND p.ip = bh.parent_ip                                                                                                                                                \n  LEFT JOIN velop.node c ON c.snapshot_id = bh.snapshot_id AND c.ip = bh.node_ip                                                                                                                                                  \n  WHERE bh.chan <> 'wired'                                                                                                                                                                                                        \n    AND velop.epoch_ms(bh.fetched_at) BETWEEN ${__from} AND ${__to}                                                                                                                                                               \n  ORDER BY bh.fetched_at DESC; ",
                         "sql": {
                           "columns": [
                             {
@@ -901,6 +901,7 @@
               },
               "fieldConfig": {
                 "defaults": {
+                  "unit": "MiBs",
                   "thresholds": {
                     "mode": "absolute",
                     "steps": [
@@ -935,7 +936,7 @@
                       "tooltip": false,
                       "viz": false
                     },
-                    "insertNulls": false,
+                    "insertNulls": 3600000,
                     "lineInterpolation": "smooth",
                     "lineWidth": 1,
                     "pointSize": 5,
@@ -1168,7 +1169,7 @@
                         "editorMode": "code",
                         "format": "table",
                         "rawQuery": true,
-                        "rawSql": "SELECT  bh.fetched_at, p.name||' <-> '||c.name ||' via '|| bh.intf ||'/'||bh.chan route, bh.rssi\nFROM \"velop\".\"backhaul\" bh\n   , \"velop\".\"node\" p\n   , \"velop\".\"node\" c\nWHERE  bh.chan != 'wired'\nAND   bh.fetched_at BETWEEN ${__from} AND ${__to}\nAND   bh.snapshot_id = p.snapshot_id\nAND   bh.snapshot_id = c.snapshot_id\nAND   bh.parent_ip = p.ip\nAND   bh.node_ip = c.ip\nORDER BY bh.fetched_at desc;",
+                        "rawSql": "  SELECT bh.fetched_at,                                                                                                                                                                                                           \n         COALESCE(p.name, bh.parent_ip) || ' <-> ' || COALESCE(c.name, bh.node_ip)                                                                                                                                                \n           || ' via ' || bh.intf || '/' || bh.chan AS route,                                                                                                                                                                      \n         velop.try_bigint(bh.rssi) AS rssi                                                                                                                                                                                        \n  FROM velop.backhaul bh                                                                                                                                                                                                          \n  LEFT JOIN velop.node p ON p.snapshot_id = bh.snapshot_id AND p.ip = bh.parent_ip                                                                                                                                                \n  LEFT JOIN velop.node c ON c.snapshot_id = bh.snapshot_id AND c.ip = bh.node_ip                                                                                                                                                  \n  WHERE bh.chan <> 'wired'                                                                                                                                                                                                        \n    AND velop.epoch_ms(bh.fetched_at) BETWEEN ${__from} AND ${__to}                                                                                                                                                               \n  ORDER BY bh.fetched_at DESC;  ",
                         "sql": {
                           "columns": [
                             {
@@ -1551,7 +1552,7 @@
                         "editorMode": "code",
                         "format": "table",
                         "rawQuery": true,
-                        "rawSql": "SELECT\n  d.fetched_at                                                AS \"time\",\n  w.rssi                                                      AS rssi\nFROM velop.device d\nLEFT JOIN velop.wlan_client w\n       ON d.snapshot_id = w.snapshot_id\n      AND lower(d.mac) = lower(w.client_mac)\nWHERE d.fetched_at::BIGINT BETWEEN ${__from} AND ${__to}\nORDER BY \"time\" ASC, name;",
+                        "rawSql": "SELECT d.fetched_at                                              AS \"time\",                                                                                                                                                     \n         COALESCE(NULLIF(d.friendly_name,''), NULLIF(d.name,''), d.mac) AS device,                                                                                                                                                \n         w.rssi                                                                                                                                                                                                                   \n  FROM velop.device d                                                                                                                                                                                                             \n  JOIN velop.wlan_client w                                                                                                                                                                                                        \n    ON w.snapshot_id = d.snapshot_id                                                                                                                                                                                              \n   AND lower(w.client_mac) = lower(d.mac)                                                                                                                                                                                         \n  WHERE velop.epoch_ms(d.fetched_at) BETWEEN ${__from} AND ${__to}                                                                                                                                                                \n  ORDER BY \"time\" ASC, device;      ",
                         "sql": {
                           "columns": [
                             {
@@ -1688,6 +1689,514 @@
             }
           }
         }
+      },
+      "panel-53": {
+        "kind": "Panel",
+        "spec": {
+          "id": 53,
+          "title": "RSSI Distribution",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "grafana-postgresql-datasource",
+                      "version": "v0",
+                      "spec": {
+                        "dataset": "doc",
+                        "editorMode": "code",
+                        "format": "table",
+                        "rawQuery": true,
+                        "rawSql": " SELECT d.fetched_at AS \"time\",                                                                                                                                                                                                  \n         CASE                                                                                                                                                                                                                     \n           WHEN w.rssi >= -50 THEN 'Excellent'                                                                                                                                                                                    \n           WHEN w.rssi >= -60 THEN 'Very good'                                                                                                                                                                                    \n           WHEN w.rssi >= -67 THEN 'Good'                                                                                                                                                                                         \n           WHEN w.rssi >= -70 THEN 'Marginal'                                                                                                                                                                                     \n           ELSE 'Poor'                                                                                                                                                                                                            \n         END        AS rssi_band,                                                                                                                                                                                                 \n         count(*)   AS rssi_count                                                                                                                                                                                                 \n  FROM velop.device d                                                                                                                                                                                                             \n  JOIN velop.wlan_client w                                                                                                                                                                                                        \n    ON w.snapshot_id = d.snapshot_id                                                                                                                                                                                              \n   AND lower(w.client_mac) = lower(d.mac)                                                                                                                                                                                         \n  WHERE velop.epoch_ms(d.fetched_at) BETWEEN ${__from} AND ${__to}                                                                                                                                                                \n  GROUP BY d.fetched_at, rssi_band                                                                                                                                                                                                \n  ORDER BY \"time\" ASC, rssi_band;   ",
+                        "sql": {
+                          "columns": [
+                            {
+                              "parameters": [],
+                              "type": "function"
+                            }
+                          ],
+                          "groupBy": [
+                            {
+                              "property": {
+                                "type": "string"
+                              },
+                              "type": "groupBy"
+                            }
+                          ],
+                          "limit": 50
+                        }
+                      },
+                      "labels": {
+                        "grafana.app/export-label": "grafana-postgresql-datasource-1"
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [
+                {
+                  "kind": "Transformation",
+                  "group": "prepareTimeSeries",
+                  "spec": {
+                    "options": {
+                      "format": "multi"
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "version": "13.0.1",
+            "spec": {
+              "options": {
+                "annotations": {
+                  "clustering": -1,
+                  "multiLane": false
+                },
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "hideZeros": false,
+                  "mode": "single",
+                  "sort": "none"
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "value": 0,
+                        "color": "green"
+                      },
+                      {
+                        "value": 80,
+                        "color": "red"
+                      }
+                    ]
+                  },
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "axisBorderShow": false,
+                    "axisCenteredZero": false,
+                    "axisColorMode": "text",
+                    "axisLabel": "",
+                    "axisPlacement": "auto",
+                    "barAlignment": 0,
+                    "barWidthFactor": 0.6,
+                    "drawStyle": "line",
+                    "fillOpacity": 27,
+                    "gradientMode": "none",
+                    "hideFrom": {
+                      "legend": false,
+                      "tooltip": false,
+                      "viz": false
+                    },
+                    "insertNulls": false,
+                    "lineInterpolation": "smooth",
+                    "lineWidth": 1,
+                    "pointSize": 5,
+                    "scaleDistribution": {
+                      "type": "linear"
+                    },
+                    "showPoints": "auto",
+                    "showValues": false,
+                    "spanNulls": false,
+                    "stacking": {
+                      "group": "A",
+                      "mode": "percent"
+                    },
+                    "thresholdsStyle": {
+                      "mode": "off"
+                    }
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-54": {
+        "kind": "Panel",
+        "spec": {
+          "id": 54,
+          "title": "RSSI for $ip",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "grafana-postgresql-datasource",
+                      "version": "v0",
+                      "spec": {
+                        "dataset": "doc",
+                        "editorMode": "code",
+                        "format": "table",
+                        "rawQuery": true,
+                        "rawSql": "  SELECT wc.fetched_at, wc.client_mac, wc.rssi                                                                                                                                                                                    \n  FROM \"velop\".\"wlan_client\" wc                                                                                                                                                                                                   \n  WHERE lower(wc.client_mac) IN (                                                                                                                                                                                                 \n          SELECT DISTINCT lower(mac) FROM velop.device WHERE ip = '$ip'                                                                                                                                                           \n        )                                                                                                                                                                                                                         \n  AND velop.epoch_ms(wc.fetched_at) BETWEEN ${__from} AND ${__to}                                                                                                                                                                 \n  ORDER BY wc.fetched_at; ",
+                        "sql": {
+                          "columns": [
+                            {
+                              "parameters": [],
+                              "type": "function"
+                            }
+                          ],
+                          "groupBy": [
+                            {
+                              "property": {
+                                "type": "string"
+                              },
+                              "type": "groupBy"
+                            }
+                          ],
+                          "limit": 50
+                        }
+                      },
+                      "labels": {
+                        "grafana.app/export-label": "grafana-postgresql-datasource-1"
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "version": "13.0.1",
+            "spec": {
+              "options": {
+                "annotations": {
+                  "clustering": -1,
+                  "multiLane": false
+                },
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "hideZeros": false,
+                  "mode": "single",
+                  "sort": "none"
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "value": 0,
+                        "color": "green"
+                      },
+                      {
+                        "value": 80,
+                        "color": "red"
+                      }
+                    ]
+                  },
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "axisBorderShow": false,
+                    "axisCenteredZero": false,
+                    "axisColorMode": "text",
+                    "axisLabel": "",
+                    "axisPlacement": "auto",
+                    "axisSoftMax": 0,
+                    "axisSoftMin": -100,
+                    "barAlignment": 0,
+                    "barWidthFactor": 0.6,
+                    "drawStyle": "line",
+                    "fillOpacity": 0,
+                    "gradientMode": "none",
+                    "hideFrom": {
+                      "legend": false,
+                      "tooltip": false,
+                      "viz": false
+                    },
+                    "insertNulls": 3600000,
+                    "lineInterpolation": "linear",
+                    "lineWidth": 1,
+                    "pointSize": 5,
+                    "scaleDistribution": {
+                      "type": "linear"
+                    },
+                    "showPoints": "auto",
+                    "showValues": false,
+                    "spanNulls": false,
+                    "stacking": {
+                      "group": "A",
+                      "mode": "none"
+                    },
+                    "thresholdsStyle": {
+                      "mode": "off"
+                    }
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-55": {
+        "kind": "Panel",
+        "spec": {
+          "id": 55,
+          "title": "Node to Node Wired Traffic Speed",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "grafana-postgresql-datasource",
+                      "version": "v0",
+                      "spec": {
+                        "dataset": "doc",
+                        "editorMode": "code",
+                        "format": "table",
+                        "rawQuery": true,
+                        "rawSql": "  SELECT bh.fetched_at,                                                                                                                                                                                                           \n         p.name || ' <-> ' || c.name || ' via ' || bh.intf || '/' || bh.chan AS route,                                                                                                                                            \n         bh.speed                                                                                                                                                                                                                 \n  FROM \"velop\".\"backhaul\" bh                                                                                                                                                                                                      \n     , \"velop\".\"node\" p                                                                                                                                                                                                           \n     , \"velop\".\"node\" c                                                                                                                                                                                                           \n  WHERE bh.chan = 'wired'                                                                                                                                                                                                         \n  AND   velop.epoch_ms(bh.fetched_at) BETWEEN ${__from} AND ${__to}                                                                                                                                                               \n  AND   bh.snapshot_id = p.snapshot_id                                                                                                                                                                                            \n  AND   bh.snapshot_id = c.snapshot_id                                                                                                                                                                                            \n  AND   bh.parent_ip = p.ip                                                                                                                                                                                                       \n  AND   bh.node_ip = c.ip                                                                                                                                                                                                         \n  ORDER BY bh.fetched_at DESC;     ",
+                        "sql": {
+                          "columns": [
+                            {
+                              "parameters": [],
+                              "type": "function"
+                            }
+                          ],
+                          "groupBy": [
+                            {
+                              "property": {
+                                "type": "string"
+                              },
+                              "type": "groupBy"
+                            }
+                          ],
+                          "limit": 50
+                        }
+                      },
+                      "labels": {
+                        "grafana.app/export-label": "grafana-postgresql-datasource-1"
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "grafana-postgresql-datasource",
+                      "version": "v0",
+                      "spec": {
+                        "dataset": "doc",
+                        "editorMode": "code",
+                        "format": "table",
+                        "rawQuery": true,
+                        "rawSql": "SELECT  fetched_at, node_ip||' -> '||parent_ip ||' via '|| intf route,  rssi\nFROM \"velop\".\"backhaul\"\nWHERE state = 'up' and chan != 'wired'\nORDER BY fetched_at desc;",
+                        "sql": {
+                          "columns": [
+                            {
+                              "parameters": [],
+                              "type": "function"
+                            }
+                          ],
+                          "groupBy": [
+                            {
+                              "property": {
+                                "type": "string"
+                              },
+                              "type": "groupBy"
+                            }
+                          ],
+                          "limit": 50
+                        }
+                      },
+                      "labels": {
+                        "grafana.app/export-label": "grafana-postgresql-datasource-1"
+                      }
+                    },
+                    "refId": "B",
+                    "hidden": true
+                  }
+                }
+              ],
+              "transformations": [
+                {
+                  "kind": "Transformation",
+                  "group": "convertFieldType",
+                  "spec": {
+                    "options": {
+                      "conversions": [
+                        {
+                          "destinationType": "number",
+                          "targetField": "rssi"
+                        }
+                      ],
+                      "fields": {}
+                    }
+                  }
+                },
+                {
+                  "kind": "Transformation",
+                  "group": "prepareTimeSeries",
+                  "spec": {
+                    "options": {
+                      "format": "multi"
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "version": "13.0.1",
+            "spec": {
+              "options": {
+                "annotations": {
+                  "clustering": -1,
+                  "multiLane": false
+                },
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "table",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "hideZeros": false,
+                  "mode": "single",
+                  "sort": "none"
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "value": 0,
+                        "color": "green"
+                      },
+                      {
+                        "value": 80,
+                        "color": "red"
+                      }
+                    ]
+                  },
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "axisBorderShow": false,
+                    "axisCenteredZero": false,
+                    "axisColorMode": "text",
+                    "axisLabel": "",
+                    "axisPlacement": "auto",
+                    "axisSoftMax": 300,
+                    "axisSoftMin": 0,
+                    "barAlignment": 0,
+                    "barWidthFactor": 0.6,
+                    "drawStyle": "line",
+                    "fillOpacity": 0,
+                    "gradientMode": "none",
+                    "hideFrom": {
+                      "legend": false,
+                      "tooltip": false,
+                      "viz": false
+                    },
+                    "insertNulls": false,
+                    "lineInterpolation": "smooth",
+                    "lineWidth": 1,
+                    "pointSize": 5,
+                    "scaleDistribution": {
+                      "type": "linear"
+                    },
+                    "showPoints": "auto",
+                    "showValues": false,
+                    "spanNulls": false,
+                    "stacking": {
+                      "group": "A",
+                      "mode": "none"
+                    },
+                    "thresholdsStyle": {
+                      "mode": "off"
+                    }
+                  }
+                },
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "scope": "series",
+                      "options": "rssi"
+                    },
+                    "properties": [
+                      {
+                        "id": "custom.axisPlacement",
+                        "value": "right"
+                      },
+                      {
+                        "id": "custom.axisSoftMin",
+                        "value": -100
+                      },
+                      {
+                        "id": "custom.axisSoftMax",
+                        "value": 0
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        }
       }
     },
     "layout": {
@@ -1702,7 +2211,7 @@
               "layout": {
                 "kind": "AutoGridLayout",
                 "spec": {
-                  "maxColumnCount": 3,
+                  "maxColumnCount": 1,
                   "columnWidthMode": "standard",
                   "rowHeightMode": "standard",
                   "items": [
@@ -1741,7 +2250,7 @@
               "layout": {
                 "kind": "AutoGridLayout",
                 "spec": {
-                  "maxColumnCount": 3,
+                  "maxColumnCount": 1,
                   "columnWidthMode": "standard",
                   "rowHeightMode": "standard",
                   "items": [
@@ -1799,7 +2308,7 @@
             "kind": "RowsLayoutRow",
             "spec": {
               "title": "Backhaul",
-              "collapse": true,
+              "collapse": false,
               "layout": {
                 "kind": "GridLayout",
                 "spec": {
@@ -1822,6 +2331,19 @@
                       "spec": {
                         "x": 0,
                         "y": 11,
+                        "width": 24,
+                        "height": 11,
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-55"
+                        }
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "x": 0,
+                        "y": 22,
                         "width": 24,
                         "height": 9,
                         "element": {
@@ -1893,6 +2415,32 @@
                         "element": {
                           "kind": "ElementReference",
                           "name": "panel-52"
+                        }
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "x": 0,
+                        "y": 16,
+                        "width": 12,
+                        "height": 8,
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-53"
+                        }
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "x": 12,
+                        "y": 16,
+                        "width": 12,
+                        "height": 8,
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-54"
                         }
                       }
                     }
@@ -1975,9 +2523,9 @@
               "dataset": "doc",
               "editorMode": "code",
               "format": "table",
-              "query": "SELECT  source_node_name\nFROM \"velop\".\"system\"\nWHERE fetched_at = (SELECT max(fetched_at) FROM \"velop\".\"system\")\nORDER BY source_node_name ;",
+              "query": "  SELECT DISTINCT source_node_name                                                                                                                                                                                                \n  FROM velop.system                                                                                                                                                                                                               \n  WHERE fetched_at > now() - interval '24 hours'                                                                                                                                                                                  \n    AND source_node_name IS NOT NULL                                                                                                                                                                                              \n  ORDER BY source_node_name;      ",
               "rawQuery": true,
-              "rawSql": "SELECT  source_node_name\nFROM \"velop\".\"system\"\nWHERE fetched_at = (SELECT max(fetched_at) FROM \"velop\".\"system\")\nORDER BY source_node_name ;",
+              "rawSql": "  SELECT DISTINCT source_node_name                                                                                                                                                                                                \n  FROM velop.system                                                                                                                                                                                                               \n  WHERE fetched_at > now() - interval '24 hours'                                                                                                                                                                                  \n    AND source_node_name IS NOT NULL                                                                                                                                                                                              \n  ORDER BY source_node_name;      ",
               "refId": "SQLVariableQueryEditor-VariableQuery",
               "sql": {
                 "columns": [
@@ -2004,9 +2552,64 @@
           "regex": "",
           "regexApplyTo": "value",
           "sort": "disabled",
-          "definition": "SELECT  source_node_name\nFROM \"velop\".\"system\"\nWHERE fetched_at = (SELECT max(fetched_at) FROM \"velop\".\"system\")\nORDER BY source_node_name ;",
+          "definition": "  SELECT DISTINCT source_node_name                                                                                                                                                                                                \n  FROM velop.system                                                                                                                                                                                                               \n  WHERE fetched_at > now() - interval '24 hours'                                                                                                                                                                                  \n    AND source_node_name IS NOT NULL                                                                                                                                                                                              \n  ORDER BY source_node_name;      ",
           "options": [],
           "multi": true,
+          "includeAll": false,
+          "allowCustomValue": true
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "name": "ip",
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "dontHide",
+          "refresh": "onDashboardLoad",
+          "skipUrlSync": false,
+          "query": {
+            "kind": "DataQuery",
+            "group": "grafana-postgresql-datasource",
+            "version": "v0",
+            "spec": {
+              "dataset": "doc",
+              "editorMode": "code",
+              "format": "table",
+              "query": "SELECT ip\nFROM \"velop\".\"device\"\nWHERE ip IS NOT NULL\nAND conn = 'Wi-Fi'\nGROUP BY ip\nORDER BY ip",
+              "rawQuery": true,
+              "rawSql": "SELECT ip\nFROM \"velop\".\"device\"\nWHERE ip IS NOT NULL\nAND conn = 'Wi-Fi'\nGROUP BY ip\nORDER BY ip",
+              "refId": "SQLVariableQueryEditor-VariableQuery",
+              "sql": {
+                "columns": [
+                  {
+                    "parameters": [],
+                    "type": "function"
+                  }
+                ],
+                "groupBy": [
+                  {
+                    "property": {
+                      "type": "string"
+                    },
+                    "type": "groupBy"
+                  }
+                ],
+                "limit": 50
+              }
+            },
+            "labels": {
+              "grafana.app/export-label": "grafana-postgresql-datasource-2"
+            }
+          },
+          "regex": "",
+          "regexApplyTo": "value",
+          "sort": "disabled",
+          "definition": "SELECT ip\nFROM \"velop\".\"device\"\nWHERE ip IS NOT NULL\nAND conn = 'Wi-Fi'\nGROUP BY ip\nORDER BY ip",
+          "options": [],
+          "multi": false,
           "includeAll": false,
           "allowCustomValue": true
         }

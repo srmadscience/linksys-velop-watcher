@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Restart every velop JDBC sink connector (and its tasks) on a Kafka Connect
-# cluster. Useful after a CrateDB/Connect bounce or to clear FAILED tasks
+# cluster. Useful after a database/Connect bounce or to clear FAILED tasks
 # without re-POSTing config.
 #
 # By default it restarts only connectors/tasks that are currently FAILED. Pass
@@ -10,11 +10,11 @@
 # Usage:
 #   ./connect/restart-sinks.sh                 # restart only FAILED tasks
 #   ./connect/restart-sinks.sh --all           # restart all connectors + tasks
-#   ./connect/restart-sinks.sh --target=postgres   # the PostgreSQL sink set
+#   ./connect/restart-sinks.sh --target=crate      # the CrateDB sink set
 #   CONNECT_URL=http://my-connect:8083 ./connect/restart-sinks.sh
 #
-# --target selects which sink set to act on (crate/postgres/all); see
-# connect/sink-files.sh.
+# --target selects which sink set to act on (postgres/crate/all, default
+# postgres); see connect/sink-files.sh.
 #
 set -euo pipefail
 

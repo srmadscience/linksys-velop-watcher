@@ -70,10 +70,14 @@ def main(argv: list[str] | None = None) -> int:
         "lldp": parse_lldp(text),
     }
 
-    # Whole-mesh capture: the master dump only carries the master's own radios
-    # and its own system health, so client WiFi traffic (served mostly by
-    # satellites) and per-node load/memory are missing. Tag the master's rows,
-    # then fetch each satellite's dump for ITS radios and system stats. Each node
+    # Whole-mesh capture: the master dump only carries the master's own radios,
+    # its own system health and its own NIC counters, so client WiFi traffic
+    # (served mostly by satellites), per-node load/memory and each satellite's
+    # own Ethernet counters are missing. Without the NIC counters there is no way
+    # to tell from the data whether a node's wired uplink is live -- only the
+    # master's view of it, which goes quiet whenever the mesh cannot resolve the
+    # link. Tag the master's rows, then fetch each satellite's dump for ITS
+    # radios, system stats and NIC counters. Each node
     # fetch is best-effort -- an offline/unreachable node logs a note and is
     # skipped rather than losing the whole capture. (Fetches are sequential; the
     # CGI is slow, so this multiplies wall-clock time by the node count.)
@@ -82,6 +86,7 @@ def main(argv: list[str] | None = None) -> int:
     if master:
         tag_node_source(parsed["radio_stats"], master)
         tag_node_source(parsed["system"], master)
+        tag_node_source(parsed["nic_counters"], master)
     for node in nodes:
         if node["role"] != "slave" or not node.get("ip"):
             continue
@@ -95,8 +100,11 @@ def main(argv: list[str] | None = None) -> int:
         parsed["radio_stats"].extend(radios)
         system = tag_node_source(parse_system(node_text), node)
         parsed["system"].extend(system)
-        print(f"Captured {len(radios)} radios + {len(system)} system row from "
-              f"{node['name']} ({node['ip']})", file=sys.stderr)
+        nics = tag_node_source(parse_nic_counters(node_text), node)
+        parsed["nic_counters"].extend(nics)
+        print(f"Captured {len(radios)} radios + {len(system)} system row + "
+              f"{len(nics)} nic counters from {node['name']} ({node['ip']})",
+              file=sys.stderr)
 
     # Best-effort: enrich devices with their untruncated names from the JNAP
     # API. A failure here (network/auth) must not lose the snapshot.

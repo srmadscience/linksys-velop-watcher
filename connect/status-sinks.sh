@@ -4,8 +4,8 @@
 # install-sinks.sh / restart-sinks.sh to confirm everything is RUNNING.
 #
 # Usage:
-#   ./connect/status-sinks.sh
-#   ./connect/status-sinks.sh --target=postgres   # the PostgreSQL sink set
+#   ./connect/status-sinks.sh                     # the PostgreSQL sink set (default)
+#   ./connect/status-sinks.sh --target=crate      # the CrateDB sink set
 #   CONNECT_URL=http://my-connect:8083 ./connect/status-sinks.sh
 #
 set -euo pipefail

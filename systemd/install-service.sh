@@ -130,7 +130,7 @@ systemctl list-timers --no-pager velop-watcher.timer || true
 
 if [[ "${NEEDS_SECRETS:-0}" == "1" ]]; then
   echo
-  echo "!! ACTION REQUIRED: edit ${ENVFILE} and set VELOP_PASSWORD + CRATE_PASSWORD."
+  echo "!! ACTION REQUIRED: edit ${ENVFILE} and set VELOP_PASSWORD."
   echo "   Until then the service will fail. After editing, no restart is needed —"
   echo "   the next timer tick (or 'sudo systemctl start velop-watcher.service') picks it up."
 fi
