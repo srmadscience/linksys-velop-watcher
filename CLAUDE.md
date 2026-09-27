@@ -274,6 +274,14 @@ the `velop.*` PostgreSQL tables on `endowment:5433`.
   `velop.backhaul`, which is the master's view and simply goes absent when the
   mesh cannot resolve a link — node `10.13.1.6` was missing from it for three
   full days in Sep 2026 — so "is the cable plugged in?" was unanswerable.
+- **A satellite that loses its cable doesn't go offline — it silently falls
+  back to ~150 Mbps 5 GHz backhaul.** `grafana/alerts/velop-wired-backhaul.yaml`
+  (+ the dashboard's *Wired Backhaul Status* panel) fires when a node that
+  should be wired isn't. The expected-wired set is a **hard-coded MAC list**
+  (`backhaul.node_mac` form, e.g. `C4411EEC4888`) in both
+  `sql/grafana_wired_backhaul_postgres.sql` and the alert YAML — keep them in
+  sync when a node is re-cabled or replaced. Absent-from-backhaul counts as
+  off-wire, not as no-data.
 - **The dump does NOT contain real DHCP leases.** `/tmp/dnsmasq.leases` (lease
   expiry, DHCP client-id, DHCP-supplied hostname) appears only as an `lsof`
   open-fd reference, never its contents. `velop.ip_neighbor` (from `ip neigh:`)

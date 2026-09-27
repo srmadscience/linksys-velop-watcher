@@ -1,0 +1,88 @@
+# Grafana unified-alerting provisioning: fire when a node that should be on
+# Ethernet backhaul has fallen back to wireless (or vanished from the mesh).
+#
+# Drop this in Grafana's provisioning directory (e.g.
+# /etc/grafana/provisioning/alerting/) next to velop-feed-staleness.yaml and
+# restart Grafana, or paste the query and threshold into a new alert rule.
+#
+# WHY: a Velop satellite whose cable fails doesn't go offline -- it quietly
+# re-routes over 5 GHz through another node at ~150 Mbps instead of 1024,
+# sharing that node's airtime with its clients. The WiFi just gets slow. In
+# Aug-Sep 2026 LINKSYS_return1 (.6) ran wireless for 8 days straight and
+# LINKSYS-Return.. (.7) for ~15, and nothing noticed.
+# Rationale, backtest and the expected-wired list: sql/grafana_wired_backhaul_postgres.sql.
+#
+# BEFORE APPLYING, replace CHANGEME_DATASOURCE_UID with the UID of your
+# PostgreSQL datasource (see velop-feed-staleness.yaml for how to find it).
+apiVersion: 1
+groups:
+  - orgId: 1
+    name: velop-mesh
+    folder: Velop
+    interval: 5m
+    rules:
+      - uid: velop-wired-backhaul
+        title: Velop node off its wired backhaul
+        condition: THRESHOLD
+        # One alert instance per node (the `node` column becomes a label), so
+        # .6 and .7 fire and resolve independently.
+        #
+        # noDataState: Alerting -- an empty result means the query or the
+        # datasource broke (the query always returns one row per listed node,
+        # even with an empty backhaul table), so it must not read as healthy.
+        noDataState: Alerting
+        execErrState: Alerting
+        # 30 min = three watcher ticks. Backtested over 60 days: every
+        # off-wire episode was either a single snapshot (2, both on Hall) or
+        # hours-to-days long (14, on .6/.7) -- nothing in between. 30m skips
+        # all the blips and catches all the real ones.
+        for: 30m
+        annotations:
+          summary: >-
+            {{ $labels.node }} is not on its wired backhaul.
+          description: >-
+            velop.backhaul shows {{ $labels.node }} on a 5 GHz wireless uplink
+            or missing from the mesh, instead of eth1/wired/up. Its clients now
+            share a ~150 Mbps radio link, not 1 Gbps. Check the cable, patch
+            point, and any switch or powerline adapter on that run; then
+            confirm the "Wired Backhaul Status" panel goes green.
+        labels:
+          service: velop
+          severity: warning
+        data:
+          - refId: QUERY
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: CHANGEME_DATASOURCE_UID
+            model:
+              refId: QUERY
+              format: table
+              editorMode: code
+              rawQuery: true
+              # Keep in sync with sql/grafana_wired_backhaul_postgres.sql.
+              rawSql: |
+                WITH expected (node_mac, node) AS (VALUES
+                       ('C4411EEC4275', 'LINKSYS-Hall'),
+                       ('C4411EEC4888', 'LINKSYS_return1'),
+                       ('E89F804C57DF', 'LINKSYS-Return..')),
+                latest AS (
+                  SELECT snapshot_id FROM velop.system ORDER BY fetched_at DESC LIMIT 1)
+                SELECT e.node,
+                       (CASE WHEN b.chan = 'wired' AND b.state = 'up' THEN 0 ELSE 1 END)::DOUBLE PRECISION
+                         AS off_wire
+                FROM expected e
+                LEFT JOIN velop.backhaul b
+                       ON b.node_mac = e.node_mac
+                      AND b.snapshot_id = (SELECT snapshot_id FROM latest)
+                ORDER BY e.node;
+          - refId: THRESHOLD
+            datasourceUid: __expr__
+            model:
+              refId: THRESHOLD
+              type: threshold
+              expression: QUERY
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0.5]

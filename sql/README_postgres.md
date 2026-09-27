@@ -21,6 +21,7 @@ either way, since it only produces to Kafka.
 | [`grafana_device_wlan_postgres.sql`](grafana_device_wlan_postgres.sql) | no view — panel queries only, so applying it is a no-op |
 | [`grafana_backhaul_postgres.sql`](grafana_backhaul_postgres.sql) | no view — node-to-node backhaul panel queries only, so applying it is a no-op |
 | [`grafana_feed_staleness_postgres.sql`](grafana_feed_staleness_postgres.sql) | no view — the one query behind the feed-staleness alert |
+| [`grafana_wired_backhaul_postgres.sql`](grafana_wired_backhaul_postgres.sql) | no view — the wired-backhaul alert query + its state-timeline panel query |
 
 Every file is safe to run with `psql -f`: the DDL is `CREATE ... IF NOT EXISTS` /
 `CREATE OR REPLACE`, and the Grafana panel queries at the bottom of each file are
@@ -156,6 +157,22 @@ PostgreSQL 13 `extract()` already returns double precision, but **on 14+ it
 returns `NUMERIC`, which Grafana silently drops** (see below) — so a routine
 server upgrade would otherwise quietly disable the monitoring that exists
 because things fail quietly.
+
+### A node falling off its cable
+
+[`grafana_wired_backhaul_postgres.sql`](grafana_wired_backhaul_postgres.sql) and
+[`../grafana/alerts/velop-wired-backhaul.yaml`](../grafana/alerts/velop-wired-backhaul.yaml)
+cover a quieter failure: the feed is healthy, but a satellite that should be
+on Ethernet has fallen back to a ~150 Mbps 5 GHz backhaul. Nothing breaks,
+the WiFi just gets slow. The dashboard's **Wired Backhaul Status** panel
+(top of the Backhaul row) shows the same thing over time.
+
+The expected-wired nodes are **listed by MAC, not inferred** — inference fails
+for exactly the case that matters (10.13.1.7 spent more of Sep 2026 on
+wireless than on its cable). Edit the list in the SQL file and the alert YAML
+together. Backtested over 60 days, off-wire episodes were either single
+snapshots (2) or hours-to-days long (14), so `for: 30m` catches every real one
+and none of the blips.
 
 ## Gotchas that carry over — and one that gets worse
 
