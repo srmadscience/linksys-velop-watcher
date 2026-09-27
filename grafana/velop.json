@@ -2143,14 +2143,23 @@
               "fieldConfig": {
                 "defaults": {
                   "color": {
-                    "mode": "thresholds"
+                    "mode": "fixed",
+                    "fixedColor": "green"
                   },
                   "thresholds": {
                     "mode": "absolute",
                     "steps": [
                       {
-                        "value": 0,
+                        "value": null,
                         "color": "green"
+                      },
+                      {
+                        "value": 1,
+                        "color": "orange"
+                      },
+                      {
+                        "value": 2,
+                        "color": "red"
                       }
                     ]
                   },
@@ -2196,7 +2205,9 @@
                       "tooltip": false,
                       "viz": false
                     }
-                  }
+                  },
+                  "min": 0,
+                  "max": 2
                 },
                 "overrides": []
               }
